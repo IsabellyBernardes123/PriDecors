@@ -20,12 +20,9 @@ const ProductManagement: React.FC<Props> = ({ products, onAdd, onDelete }) => {
     e.preventDefault();
     if (!formData.name || !formData.manufacturingValue || !formData.laborCost) return;
 
-    const nextId = products.length > 0 
-      ? (Math.max(...products.map(p => parseInt(p.id) || 0)) + 1).toString()
-      : "1";
-
+    // Enviamos id como string vazia; o App.tsx gerará o próximo ID sequencial
     const newProduct: Product = {
-      id: nextId,
+      id: '', 
       name: formData.name,
       manufacturingValue: parseFloat(formData.manufacturingValue),
       laborCost: parseFloat(formData.laborCost)

@@ -2,8 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Product, ProductionLog, Expense } from '../types';
-// Fixed: Added 'Package' to the lucide-react imports
-import { TrendingUp, Users, Sparkles, Percent, BadgeDollarSign, Calculator, Receipt, Calendar, Package } from 'lucide-react';
+import { TrendingUp, Users, Sparkles, Percent, BadgeDollarSign, Calculator, Receipt, Calendar, Package, Layers, Wallet } from 'lucide-react';
 
 interface Props {
   products: Product[];
@@ -23,6 +22,7 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
   const stats = useMemo(() => {
     let totalValue = 0;
     let totalLabor = 0;
+    let totalQuantity = 0;
     
     const filteredLogs = logs.filter(log => {
       const [logYear, logMonth] = log.date.split('-');
@@ -34,6 +34,7 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
       if (product) {
         totalValue += product.manufacturingValue * log.quantity;
         totalLabor += product.laborCost * log.quantity;
+        totalQuantity += log.quantity;
       }
     });
 
@@ -49,6 +50,7 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
     return {
       revenue: totalValue,
       labor: totalLabor,
+      totalQuantity,
       grossProfit,
       taxAmount,
       productionNetProfit: netProfitFromProduction,
@@ -149,14 +151,20 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
         </div>
       </header>
 
-      {/* Grid Responsivo de Cards */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-6 gap-3">
-        <StatCard title="Faturamento" value={`R$ ${stats.revenue.toFixed(2)}`} icon={<Calculator className="text-blue-600" size={18} />} change="Total" color="blue" />
-        <StatCard title="Lucro Bruto" value={`R$ ${stats.grossProfit.toFixed(2)}`} icon={<BadgeDollarSign className="text-indigo-600" size={18} />} change="Confec." color="indigo" />
+      {/* Fileira 1: Faturamento, Mão de Obra, Lucro Bruto, Lucro Líquido */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard title="Faturamento" value={`R$ ${stats.revenue.toFixed(2)}`} icon={<Calculator className="text-blue-600" size={18} />} change="Receita" color="blue" />
         <StatCard title="Mão de Obra" value={`R$ ${stats.labor.toFixed(2)}`} icon={<Users className="text-orange-500" size={18} />} change="Produção" color="orange" />
-        <StatCard title="Líquido Real" value={`R$ ${stats.finalNetProfit.toFixed(2)}`} icon={<TrendingUp className="text-green-500" size={18} />} change="Saldo" color="green" />
+        <StatCard title="Lucro Bruto" value={`R$ ${stats.grossProfit.toFixed(2)}`} icon={<BadgeDollarSign className="text-indigo-600" size={18} />} change="Confec." color="indigo" />
+        <StatCard title="Lucro Líquido" value={`R$ ${stats.productionNetProfit.toFixed(2)}`} icon={<TrendingUp className="text-green-500" size={18} />} change="Líq. Prod." color="green" />
+      </div>
+
+      {/* Fileira 2: Total Produzido, Imposto, Outras Despesas, Valor Final */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard title="Total Produzido" value={`${stats.totalQuantity} un.`} icon={<Layers className="text-purple-600" size={18} />} change="Volume" color="blue" />
         <StatCard title="Imposto" value={`R$ ${stats.taxAmount.toFixed(2)}`} icon={<Percent className="text-red-500" size={18} />} change="Governo" color="red" />
-        <StatCard title="Extras" value={`R$ ${stats.otherExpenses.toFixed(2)}`} icon={<Receipt className="text-rose-500" size={18} />} change="Variáv." color="red" />
+        <StatCard title="Outras Despesas" value={`R$ ${stats.otherExpenses.toFixed(2)}`} icon={<Receipt className="text-rose-500" size={18} />} change="Variáv." color="red" />
+        <StatCard title="Valor Final" value={`R$ ${stats.finalNetProfit.toFixed(2)}`} icon={<Wallet className="text-emerald-600" size={18} />} change="Saldo Real" color="green" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -165,7 +173,7 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
             <h3 className="text-sm font-bold text-gray-800">Desempenho Diário</h3>
             <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Mês Atual</span>
           </div>
-          <div className="h-64 sm:h-72 w-full">
+          <div className="h-64 sm:h-72 w-full min-h-[256px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -184,7 +192,7 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
 
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <h3 className="text-sm font-bold text-gray-800 mb-6">Mix de Produção</h3>
-          <div className="h-64 sm:h-72 flex flex-col xs:flex-row items-center">
+          <div className="h-64 sm:h-72 flex flex-col xs:flex-row items-center min-h-[256px]">
             {productDistribution.length > 0 ? (
               <>
                 <div className="flex-1 w-full h-full min-h-[180px]">

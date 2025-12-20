@@ -65,12 +65,9 @@ const ProductionLogs: React.FC<Props> = ({ products, logs, onAdd, onDelete }) =>
     e.preventDefault();
     if (!formData.productId || !formData.date || !formData.quantity) return;
 
-    const nextLogId = logs.length > 0 
-      ? (Math.max(...logs.map(l => parseInt(l.id) || 0)) + 1).toString()
-      : "1";
-
+    // Enviamos id como string vazia; o App.tsx gerará o próximo ID sequencial
     const newLog: ProductionLog = {
-      id: nextLogId,
+      id: '',
       productId: formData.productId,
       date: formData.date,
       quantity: parseInt(formData.quantity)
