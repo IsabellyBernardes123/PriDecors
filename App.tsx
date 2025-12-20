@@ -63,11 +63,21 @@ const App: React.FC = () => {
     }
   };
 
+  // Função para gerar o próximo ID sequencial baseado na lista atual
+  const getNextId = (list: { id: string }[]) => {
+    if (list.length === 0) return 1;
+    const ids = list.map(item => parseInt(item.id)).filter(id => !isNaN(id));
+    return ids.length > 0 ? Math.max(...ids) + 1 : 1;
+  };
+
   const addProduct = async (product: Product) => {
     try {
+      // Prioriza o ID calculado no componente ou gera o próximo sequencial
+      const newId = parseInt(product.id) || getNextId(products);
       const { data, error } = await supabase
         .from('products')
         .insert([{
+          id: newId,
           name: product.name,
           manufacturing_value: product.manufacturingValue,
           labor_cost: product.laborCost
@@ -79,7 +89,7 @@ const App: React.FC = () => {
         setProducts([...products, { ...product, id: data[0].id.toString() }]);
       }
     } catch (err: any) {
-      alert('Erro ao salvar produto: ' + err.message);
+      alert('Erro ao salvar produto no banco: ' + err.message);
     }
   };
 
@@ -96,9 +106,11 @@ const App: React.FC = () => {
   
   const addLog = async (log: ProductionLog) => {
     try {
+      const newId = parseInt(log.id) || getNextId(logs);
       const { data, error } = await supabase
         .from('production_logs')
         .insert([{
+          id: newId,
           product_id: parseInt(log.productId),
           date: log.date,
           quantity: log.quantity
@@ -110,7 +122,7 @@ const App: React.FC = () => {
         setLogs([...logs, { ...log, id: data[0].id.toString() }]);
       }
     } catch (err: any) {
-      alert('Erro ao salvar lançamento: ' + err.message);
+      alert('Erro ao salvar lançamento no banco: ' + err.message);
     }
   };
 
@@ -126,9 +138,11 @@ const App: React.FC = () => {
 
   const addExpense = async (expense: Expense) => {
     try {
+      const newId = getNextId(expenses);
       const { data, error } = await supabase
         .from('expenses')
         .insert([{
+          id: newId,
           description: expense.description,
           value: expense.value,
           date: expense.date
@@ -138,16 +152,15 @@ const App: React.FC = () => {
       if (error) throw error;
       
       if (data && data[0]) {
-        const savedExpense: Expense = {
+        setExpenses([...expenses, {
           id: data[0].id.toString(),
           description: data[0].description,
           value: data[0].value,
           date: data[0].date
-        };
-        setExpenses([...expenses, savedExpense]);
+        }]);
       }
     } catch (err: any) {
-      alert('Erro ao salvar despesa: ' + err.message);
+      alert('Erro ao salvar despesa no banco: ' + err.message);
     }
   };
 
@@ -165,7 +178,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-indigo-600">
         <Loader2 className="animate-spin mb-4" size={48} />
-        <p className="font-semibold">Carregando dados...</p>
+        <p className="font-semibold">Sincronizando banco de dados...</p>
       </div>
     );
   }
@@ -175,14 +188,9 @@ const App: React.FC = () => {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl border border-red-100 max-w-md text-center w-full">
           <AlertCircle className="text-red-500 mx-auto mb-4" size={64} />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Ops! Algo deu errado</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Erro de Conexão</h2>
           <p className="text-gray-600 mb-6">{error}</p>
-          <button 
-            onClick={fetchData}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-all"
-          >
-            Tentar Novamente
-          </button>
+          <button onClick={fetchData} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-all">Tentar Novamente</button>
         </div>
       </div>
     );
@@ -220,65 +228,38 @@ const Sidebar: React.FC = () => {
 
   return (
     <>
-      {/* Top Bar para Mobile */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50 flex items-center justify-between px-4">
         <h1 className="text-xl font-bold text-indigo-700 flex items-center gap-2">
           <Package className="text-indigo-600" size={24} />
           PriDecor
         </h1>
-        <button 
-          onClick={() => setIsOpen(!isOpen)}
-          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-        >
+        <button onClick={() => setIsOpen(!isOpen)} className="p-2 text-gray-600">
           {isOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      {/* Overlay Mobile */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+      {isOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsOpen(false)} />}
 
-      {/* Sidebar Desktop & Drawer Mobile */}
-      <aside className={`
-        fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
-      `}>
+      <aside className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="p-6 hidden md:block">
           <h1 className="text-2xl font-bold text-indigo-700 flex items-center gap-2">
             <Package className="text-indigo-600" size={28} />
             PriDecor
           </h1>
-          <p className="text-xs text-gray-400 mt-1 uppercase tracking-widest font-semibold">Sistema de Gestão</p>
+          <p className="text-xs text-gray-400 mt-1 uppercase tracking-widest font-semibold">Gestão de Confecção</p>
         </div>
-
-        <div className="p-6 md:hidden flex justify-between items-center border-b border-gray-100 mb-4">
-          <span className="font-bold text-indigo-700 uppercase tracking-widest">Menu</span>
-          <button onClick={() => setIsOpen(false)}><X size={20}/></button>
-        </div>
-
         <nav className="px-4 space-y-1">
-          {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsOpen(false)}
-                className={`flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 ${
-                  isActive 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
-                    : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
-                }`}
-              >
-                <item.icon size={20} />
-                <span className="font-semibold">{item.label}</span>
-              </Link>
-            );
-          })}
+          {menuItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => setIsOpen(false)}
+              className={`flex items-center space-x-3 p-3 rounded-xl transition-all ${location.pathname === item.path ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'}`}
+            >
+              <item.icon size={20} />
+              <span className="font-semibold">{item.label}</span>
+            </Link>
+          ))}
         </nav>
       </aside>
     </>
