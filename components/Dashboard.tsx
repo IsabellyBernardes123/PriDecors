@@ -2,7 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Product, ProductionLog, Expense } from '../types';
-import { TrendingUp, Package, Users, Wallet, Sparkles, Percent, BadgeDollarSign, Calculator, Receipt, Calendar } from 'lucide-react';
+// Fixed: Added 'Package' to the lucide-react imports
+import { TrendingUp, Users, Sparkles, Percent, BadgeDollarSign, Calculator, Receipt, Calendar, Package } from 'lucide-react';
 
 interface Props {
   products: Product[];
@@ -17,13 +18,12 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
   const [selectedMonth, setSelectedMonth] = useState((now.getMonth() + 1).toString().padStart(2, '0'));
   const [selectedYear, setSelectedYear] = useState(now.getFullYear().toString());
 
-  const periodKey = `${selectedYear}-${selectedMonth}`; // Ex: "2025-12"
+  const periodKey = `${selectedYear}-${selectedMonth}`;
 
   const stats = useMemo(() => {
     let totalValue = 0;
     let totalLabor = 0;
     
-    // Filtrar lançamentos pelo mês/ano selecionado
     const filteredLogs = logs.filter(log => {
       const [logYear, logMonth] = log.date.split('-');
       return logYear === selectedYear && logMonth === selectedMonth;
@@ -37,7 +37,6 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
       }
     });
 
-    // CORREÇÃO: Filtrar despesas verificando se a data da despesa começa com "AAAA-MM"
     const totalOtherExpenses = expenses
       .filter(ex => ex.date.startsWith(periodKey))
       .reduce((acc, curr) => acc + curr.value, 0);
@@ -62,8 +61,6 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
 
   const chartData = useMemo(() => {
     const daily: Record<string, { date: string, netProfit: number, grossProfit: number }> = {};
-    
-    // Filtrar logs para o gráfico (apenas do mês selecionado)
     const filteredLogs = logs.filter(log => {
       const [logYear, logMonth] = log.date.split('-');
       return logYear === selectedYear && logMonth === selectedMonth;
@@ -74,9 +71,7 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
       if (product) {
         const grossProfit = (product.manufacturingValue - product.laborCost) * log.quantity;
         const netProfit = grossProfit > 0 ? grossProfit * (1 - TAX_RATE) : grossProfit;
-        
-        const dayLabel = log.date.split('-')[2]; // Pega o dia
-        
+        const dayLabel = log.date.split('-')[2];
         daily[log.date] = {
           date: dayLabel,
           grossProfit: (daily[log.date]?.grossProfit || 0) + grossProfit,
@@ -89,7 +84,6 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
 
   const productDistribution = useMemo(() => {
     const distribution: Record<string, number> = {};
-    
     const filteredLogs = logs.filter(log => {
       const [logYear, logMonth] = log.date.split('-');
       return logYear === selectedYear && logMonth === selectedMonth;
@@ -105,7 +99,6 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
   }, [logs, products, selectedMonth, selectedYear]);
 
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-
   const months = [
     { value: '01', label: 'Janeiro' }, { value: '02', label: 'Fevereiro' },
     { value: '03', label: 'Março' }, { value: '04', label: 'Abril' },
@@ -114,100 +107,95 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
     { value: '09', label: 'Setembro' }, { value: '10', label: 'Outubro' },
     { value: '11', label: 'Novembro' }, { value: '12', label: 'Dezembro' }
   ];
-
   const years = Array.from({ length: 5 }, (_, i) => (now.getFullYear() - 2 + i).toString());
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-indigo-600 mb-1">
-            <Sparkles size={20} className="animate-pulse" />
-            <span className="text-sm font-bold uppercase tracking-widest">Painel Administrativo</span>
+    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-indigo-600 mb-1">
+            <Sparkles size={16} className="animate-pulse" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Painel Administrativo</span>
           </div>
-          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
             Olá, <span className="text-indigo-600">Priscila!</span> 👋
           </h1>
-          <p className="text-lg text-gray-500">
-            Acompanhe o fechamento real do mês de <span className="font-bold text-gray-700">{months.find(m => m.value === selectedMonth)?.label}</span>.
+          <p className="text-sm text-gray-500">
+            Acompanhe o fechamento de <span className="font-bold text-gray-700">{months.find(m => m.value === selectedMonth)?.label}</span>.
           </p>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="flex items-center gap-2 text-gray-500">
+        <div className="bg-white p-2 px-3 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3 self-start sm:self-center w-full sm:w-auto">
+          <div className="flex items-center gap-1.5 text-gray-400">
             <Calendar size={18} />
-            <span className="text-xs font-bold uppercase">Período:</span>
+            <span className="text-[10px] font-bold uppercase hidden xs:inline">Período:</span>
           </div>
-          <select 
-            value={selectedMonth} 
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="bg-gray-50 border-none text-sm font-bold text-gray-700 rounded-lg px-3 py-1 focus:ring-2 focus:ring-indigo-500 outline-none"
-          >
-            {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
-          <select 
-            value={selectedYear} 
-            onChange={(e) => setSelectedYear(e.target.value)}
-            className="bg-gray-50 border-none text-sm font-bold text-gray-700 rounded-lg px-3 py-1 focus:ring-2 focus:ring-indigo-500 outline-none"
-          >
-            {years.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+          <div className="flex gap-2 flex-1">
+            <select 
+              value={selectedMonth} 
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="flex-1 bg-gray-50 border-none text-xs font-bold text-gray-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+            >
+              {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+            <select 
+              value={selectedYear} 
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="flex-1 bg-gray-50 border-none text-xs font-bold text-gray-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+            >
+              {years.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
         </div>
       </header>
 
-      <div className="space-y-6">
-        {/* Primeira Fileira */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <StatCard title="Faturamento" value={`R$ ${stats.revenue.toFixed(2)}`} icon={<Calculator className="text-blue-600" />} change="Total Bruto" color="blue" />
-          <StatCard title="Lucro Bruto" value={`R$ ${stats.grossProfit.toFixed(2)}`} icon={<BadgeDollarSign className="text-indigo-600" />} change="Confecção" color="indigo" />
-          <StatCard title="Mão de Obra" value={`R$ ${stats.labor.toFixed(2)}`} icon={<Users className="text-orange-500" />} change="Produção" color="orange" />
-        </div>
-
-        {/* Segunda Fileira */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <StatCard title="Lucro Líquido Real" value={`R$ ${stats.finalNetProfit.toFixed(2)}`} icon={<TrendingUp className="text-green-500" />} change="Saldo Final" color="green" />
-          <StatCard title="Imposto (7,5%)" value={`R$ ${stats.taxAmount.toFixed(2)}`} icon={<Percent className="text-red-500" />} change="Governo" color="red" />
-          <StatCard title="Despesas Extras" value={`R$ ${stats.otherExpenses.toFixed(2)}`} icon={<Receipt className="text-rose-500" />} change="Variáveis" color="red" />
-        </div>
+      {/* Grid Responsivo de Cards */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-6 gap-3">
+        <StatCard title="Faturamento" value={`R$ ${stats.revenue.toFixed(2)}`} icon={<Calculator className="text-blue-600" size={18} />} change="Total" color="blue" />
+        <StatCard title="Lucro Bruto" value={`R$ ${stats.grossProfit.toFixed(2)}`} icon={<BadgeDollarSign className="text-indigo-600" size={18} />} change="Confec." color="indigo" />
+        <StatCard title="Mão de Obra" value={`R$ ${stats.labor.toFixed(2)}`} icon={<Users className="text-orange-500" size={18} />} change="Produção" color="orange" />
+        <StatCard title="Líquido Real" value={`R$ ${stats.finalNetProfit.toFixed(2)}`} icon={<TrendingUp className="text-green-500" size={18} />} change="Saldo" color="green" />
+        <StatCard title="Imposto" value={`R$ ${stats.taxAmount.toFixed(2)}`} icon={<Percent className="text-red-500" size={18} />} change="Governo" color="red" />
+        <StatCard title="Extras" value={`R$ ${stats.otherExpenses.toFixed(2)}`} icon={<Receipt className="text-rose-500" size={18} />} change="Variáv." color="red" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-gray-800">Desempenho Diário</h3>
-            <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full font-bold uppercase">Dias do Mês</span>
+            <h3 className="text-sm font-bold text-gray-800">Desempenho Diário</h3>
+            <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Mês Atual</span>
           </div>
-          <div className="h-80">
+          <div className="h-64 sm:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ fontSize: '11px', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                   labelFormatter={(label) => `Dia ${label}`}
                 />
-                <Line name="L. Bruto" type="monotone" dataKey="grossProfit" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                <Line name="L. Líquido" type="monotone" dataKey="netProfit" stroke="#6366f1" strokeWidth={3} dot={{ fill: '#6366f1', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
+                <Line name="L. Bruto" type="monotone" dataKey="grossProfit" stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" dot={false} />
+                <Line name="L. Líquido" type="monotone" dataKey="netProfit" stroke="#6366f1" strokeWidth={3} dot={{ fill: '#6366f1', r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-800 mb-6">Mix de Produção no Período</h3>
-          <div className="h-80 flex flex-col md:flex-row items-center">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+          <h3 className="text-sm font-bold text-gray-800 mb-6">Mix de Produção</h3>
+          <div className="h-64 sm:h-72 flex flex-col xs:flex-row items-center">
             {productDistribution.length > 0 ? (
               <>
-                <div className="flex-1 w-full h-full">
+                <div className="flex-1 w-full h-full min-h-[180px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={productDistribution}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
+                        innerRadius={50}
+                        outerRadius={75}
                         paddingAngle={5}
                         dataKey="value"
                       >
@@ -219,21 +207,22 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="flex-1 space-y-3 mt-4 md:mt-0 w-full">
+                <div className="w-full xs:w-1/2 space-y-2 mt-4 xs:mt-0 xs:pl-6">
                   {productDistribution.map((entry, index) => (
-                    <div key={entry.name} className="flex items-center justify-between">
+                    <div key={entry.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                        <span className="text-sm font-medium text-gray-600">{entry.name}</span>
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                        <span className="text-[11px] font-semibold text-gray-600 truncate max-w-[120px]">{entry.name}</span>
                       </div>
-                      <span className="text-sm font-bold text-gray-800">{entry.value} un.</span>
+                      <span className="text-[11px] font-bold text-gray-900">{entry.value} un.</span>
                     </div>
                   ))}
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-400 text-sm italic">
-                Nenhuma produção lançada neste mês.
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-400 space-y-2">
+                <Package className="opacity-20" size={48} />
+                <p className="text-xs italic">Nenhuma produção lançada neste período.</p>
               </div>
             )}
           </div>
@@ -253,16 +242,16 @@ const StatCard = ({ title, value, icon, change, color = 'indigo' }: { title: str
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow min-h-[140px]">
-      <div className="flex items-center justify-between mb-4">
-        <div className="bg-gray-50 p-2 rounded-lg">{icon}</div>
+    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-lg transition-all duration-300 min-h-[105px] group">
+      <div className="flex items-center justify-between mb-2">
+        <div className="bg-gray-50 p-2 rounded-xl group-hover:scale-110 transition-transform">{icon}</div>
         <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${bgMap[color] || bgMap.indigo}`}>
           {change}
         </span>
       </div>
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{title}</p>
-        <p className="text-2xl font-bold text-gray-800 mt-1 truncate">{value}</p>
+        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1.5">{title}</p>
+        <p className="text-lg font-bold text-gray-900 truncate tracking-tight">{value}</p>
       </div>
     </div>
   );
