@@ -25,7 +25,6 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // Busca produtos
       const { data: pData, error: pErr } = await supabase.from('products').select('*');
       if (pErr) throw pErr;
       setProducts((pData || []).map(p => ({
@@ -35,7 +34,6 @@ const App: React.FC = () => {
         laborCost: p.labor_cost
       })));
 
-      // Busca logs
       const { data: lData, error: lErr } = await supabase.from('production_logs').select('*');
       if (lErr) throw lErr;
       setLogs((lData || []).map(l => ({
@@ -45,16 +43,15 @@ const App: React.FC = () => {
         quantity: l.quantity
       })));
 
-      // Busca despesas (Tratamento individual para caso a tabela não exista)
       const { data: eData, error: eErr } = await supabase.from('expenses').select('*');
       if (eErr) {
-        console.warn('Erro ao carregar despesas (provavelmente a tabela não existe):', eErr.message);
+        console.warn('Erro ao carregar despesas:', eErr.message);
       } else {
         setExpenses((eData || []).map(ex => ({
           id: ex.id.toString(),
           description: ex.description,
           value: ex.value,
-          date: ex.date // Mantém o formato salvo
+          date: ex.date
         })));
       }
 
@@ -129,7 +126,6 @@ const App: React.FC = () => {
 
   const addExpense = async (expense: Expense) => {
     try {
-      // Enviamos sem ID para que o Supabase gere automaticamente (Serial/Identity)
       const { data, error } = await supabase
         .from('expenses')
         .insert([{
@@ -151,7 +147,7 @@ const App: React.FC = () => {
         setExpenses([...expenses, savedExpense]);
       }
     } catch (err: any) {
-      alert('Erro ao salvar despesa: ' + err.message + '\n\nCertifique-se de que a tabela "expenses" existe no seu Supabase.');
+      alert('Erro ao salvar despesa: ' + err.message);
     }
   };
 
@@ -177,7 +173,7 @@ const App: React.FC = () => {
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl border border-red-100 max-w-md text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-xl border border-red-100 max-w-md text-center w-full">
           <AlertCircle className="text-red-500 mx-auto mb-4" size={64} />
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Ops! Algo deu errado</h2>
           <p className="text-gray-600 mb-6">{error}</p>
@@ -194,9 +190,9 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
-      <div className="flex min-h-screen bg-gray-50">
+      <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 p-4 md:p-8 overflow-auto">
+        <main className="flex-1 p-4 md:p-8 pt-20 md:pt-8 w-full max-w-7xl mx-auto overflow-x-hidden">
           <Routes>
             <Route path="/" element={<Dashboard products={products} logs={logs} expenses={expenses} />} />
             <Route path="/produtos" element={<ProductManagement products={products} onAdd={addProduct} onDelete={deleteProduct} />} />
@@ -224,32 +220,47 @@ const Sidebar: React.FC = () => {
 
   return (
     <>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-50 md:hidden p-2 bg-indigo-600 text-white rounded-md shadow-lg"
-      >
-        {isOpen ? <X size={20} /> : <Menu size={20} />}
-      </button>
+      {/* Top Bar para Mobile */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50 flex items-center justify-between px-4">
+        <h1 className="text-xl font-bold text-indigo-700 flex items-center gap-2">
+          <Package className="text-indigo-600" size={24} />
+          PriDecor
+        </h1>
+        <button 
+          onClick={() => setIsOpen(!isOpen)}
+          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          {isOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
 
+      {/* Overlay Mobile */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
+      {/* Sidebar Desktop & Drawer Mobile */}
       <aside className={`
-        fixed md:static inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out
+        fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
       `}>
-        <div className="p-6">
+        <div className="p-6 hidden md:block">
           <h1 className="text-2xl font-bold text-indigo-700 flex items-center gap-2">
-            <Package className="text-indigo-600" />
+            <Package className="text-indigo-600" size={28} />
             PriDecor
           </h1>
-          <p className="text-xs text-gray-400 mt-1 uppercase tracking-wider font-semibold">Sistema de Gestão</p>
+          <p className="text-xs text-gray-400 mt-1 uppercase tracking-widest font-semibold">Sistema de Gestão</p>
         </div>
-        <nav className="px-4 space-y-2">
+
+        <div className="p-6 md:hidden flex justify-between items-center border-b border-gray-100 mb-4">
+          <span className="font-bold text-indigo-700 uppercase tracking-widest">Menu</span>
+          <button onClick={() => setIsOpen(false)}><X size={20}/></button>
+        </div>
+
+        <nav className="px-4 space-y-1">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -257,14 +268,14 @@ const Sidebar: React.FC = () => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setIsOpen(false)}
-                className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                className={`flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 ${
                   isActive 
-                    ? 'bg-indigo-600 text-white shadow-md' 
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
                     : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
                 }`}
               >
                 <item.icon size={20} />
-                <span className="font-medium">{item.label}</span>
+                <span className="font-semibold">{item.label}</span>
               </Link>
             );
           })}
