@@ -1,9 +1,15 @@
 
+export interface Category {
+  id: string;
+  name: string;
+}
+
 export interface Product {
   id: string;
   name: string;
   manufacturingValue: number; // Valor de venda/confecção total
   laborCost: number; // Valor pago pela mão de obra
+  categoryId: string; // Vínculo com a categoria
 }
 
 export interface ProductionLog {
