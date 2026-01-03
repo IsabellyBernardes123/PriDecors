@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Calendar, Package, Hash, Calculator, TrendingUp, DollarSign, Percent, BadgeDollarSign } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Plus, Trash2, Calendar, Package, Hash, Calculator, TrendingUp, DollarSign, BadgeDollarSign, Search, ChevronDown, X } from 'lucide-react';
 import { Product, ProductionLog, ProductionReportItem } from '../types';
 
 interface Props {
@@ -18,6 +18,32 @@ const ProductionLogs: React.FC<Props> = ({ products, logs, onAdd, onDelete }) =>
     date: new Date().toISOString().split('T')[0],
     quantity: ''
   });
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fecha o dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredProducts = useMemo(() => {
+    return products
+      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, searchTerm]);
+
+  const selectedProduct = useMemo(() => 
+    products.find(p => p.id === formData.productId),
+    [products, formData.productId]
+  );
 
   const reportData = useMemo<ProductionReportItem[]>(() => {
     return logs.map(log => {
@@ -63,9 +89,11 @@ const ProductionLogs: React.FC<Props> = ({ products, logs, onAdd, onDelete }) =>
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.productId || !formData.date || !formData.quantity) return;
+    if (!formData.productId || !formData.date || !formData.quantity) {
+      alert('Selecione um produto e preencha a quantidade.');
+      return;
+    }
 
-    // Enviamos id como string vazia; o App.tsx gerará o próximo ID sequencial
     const newLog: ProductionLog = {
       id: '',
       productId: formData.productId,
@@ -74,138 +102,203 @@ const ProductionLogs: React.FC<Props> = ({ products, logs, onAdd, onDelete }) =>
     };
 
     onAdd(newLog);
-    setFormData({ ...formData, quantity: '' });
+    setFormData({ ...formData, quantity: '', productId: '' });
+    setSearchTerm('');
+  };
+
+  const handleSelectProduct = (p: Product) => {
+    setFormData({ ...formData, productId: p.id });
+    setSearchTerm(p.name);
+    setIsDropdownOpen(false);
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="space-y-4 animate-in fade-in duration-500">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard 
-          title="Faturamento" 
+          title="Receita" 
           value={totals.totalValue} 
-          icon={<Calculator className="text-blue-600" />} 
+          icon={<Calculator size={14} className="text-blue-600" />} 
           color="blue" 
         />
         <SummaryCard 
           title="Mão de Obra" 
           value={totals.totalLabor} 
-          icon={<DollarSign className="text-orange-600" />} 
+          icon={<DollarSign size={14} className="text-orange-600" />} 
           color="orange" 
         />
         <SummaryCard 
-          title="Lucro Bruto" 
+          title="L. Bruto" 
           value={totals.totalGrossProfit} 
-          icon={<BadgeDollarSign className="text-indigo-600" />} 
+          icon={<BadgeDollarSign size={14} className="text-indigo-600" />} 
           color="indigo" 
         />
         <SummaryCard 
-          title="Lucro Líquido" 
+          title="L. Líquido" 
           value={totals.totalNetProfit} 
-          icon={<TrendingUp className="text-green-600" />} 
+          icon={<TrendingUp size={14} className="text-green-600" />} 
           color="green" 
         />
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-          <Plus className="text-indigo-600" size={24} />
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <Plus className="text-indigo-600" size={18} />
           Lançar Produção
         </h2>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-gray-600">Produto</label>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+          
+          {/* Seletor de Produto Pesquisável */}
+          <div className="space-y-0.5 relative" ref={dropdownRef}>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-0.5">Produto</label>
             <div className="relative">
-              <Package className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-              <select
-                value={formData.productId}
-                onChange={(e) => setFormData({ ...formData, productId: e.target.value })}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all appearance-none bg-white"
-                required
-              >
-                <option value="">Selecione...</option>
-                {[...products].sort((a, b) => a.name.localeCompare(b.name)).map(p => (
-                  <option key={p.id} value={p.id}>{p.name} (#{p.id})</option>
-                ))}
-              </select>
+              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                <Search size={14} />
+              </div>
+              <input
+                type="text"
+                placeholder="Pesquisar produto..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setIsDropdownOpen(true);
+                  if (formData.productId) setFormData({...formData, productId: ''});
+                }}
+                onFocus={() => setIsDropdownOpen(true)}
+                className="w-full pl-8 pr-8 py-1.5 border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-xs bg-gray-50/30"
+              />
+              {searchTerm && (
+                <button 
+                  type="button"
+                  onClick={() => { setSearchTerm(''); setFormData({...formData, productId: ''}); }}
+                  className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                >
+                  <X size={12} />
+                </button>
+              )}
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <ChevronDown size={14} />
+              </div>
             </div>
+
+            {/* Dropdown de Sugestões */}
+            {isDropdownOpen && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                {filteredProducts.length > 0 ? (
+                  filteredProducts.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => handleSelectProduct(p)}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 transition-colors flex items-center justify-between group ${formData.productId === p.id ? 'bg-indigo-50' : ''}`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-bold text-gray-800">{p.name}</span>
+                        <span className="text-[10px] text-gray-400">R$ {p.manufacturingValue.toFixed(2)}</span>
+                      </div>
+                      <span className="text-[10px] text-indigo-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity">#{p.id}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-4 text-center text-gray-400 text-xs italic">
+                    Nenhum produto encontrado
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-gray-600">Data</label>
+
+          <div className="space-y-0.5">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-0.5">Data</label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
               <input
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none text-xs bg-gray-50/30"
                 required
               />
             </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-gray-600">Quantidade</label>
+
+          <div className="space-y-0.5">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-0.5">Qtd</label>
             <div className="relative">
-              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
               <input
                 type="number"
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none text-xs bg-gray-50/30"
                 placeholder="0"
                 required
               />
             </div>
           </div>
+
           <button
             type="submit"
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 h-[42px]"
+            disabled={!formData.productId}
+            className={`w-full font-bold py-1.5 px-4 rounded-lg transition-all flex items-center justify-center gap-1.5 text-xs h-[34px] shadow-sm ${
+              formData.productId 
+              ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-[0.98]' 
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
           >
-            <Plus size={18} /> Lançar
+            <Plus size={14} /> Lançar Produção
           </button>
         </form>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-50 bg-gray-50/50">
-          <h2 className="text-xl font-bold text-gray-800">Histórico Detalhado</h2>
+        <div className="p-3 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
+          <h2 className="text-sm font-bold text-gray-800">Histórico de Lançamentos</h2>
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{reportData.length} registros</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-white border-b border-gray-100">
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">ID</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Data</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Produto</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Qtd</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Faturamento</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Mão de Obra</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Lucro Bruto</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Lucro Líq.</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Ações</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-center">ID</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-center">Data</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-left">Produto</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-center">Qtd</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-right">Fatur.</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-right">M.O.</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-right">L. Bruto</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-right">L. Líq.</th>
+                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-center w-12">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {reportData.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-400">Nenhum lançamento realizado.</td>
+                  <td colSpan={9} className="px-3 py-10 text-center text-gray-400 text-xs italic">
+                    <div className="flex flex-col items-center gap-2">
+                      <Package size={24} className="opacity-10" />
+                      Nenhum lançamento registrado.
+                    </div>
+                  </td>
                 </tr>
               ) : (
                 reportData.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-mono text-gray-400 text-center">#{item.id}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 text-center">{new Date(item.date).toLocaleDateString('pt-BR')}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-800 text-center">{item.productName}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 font-mono text-center">{item.quantity}</td>
-                    <td className="px-6 py-4 text-sm text-blue-600 font-medium text-center">R$ {item.totalValue.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm text-orange-600 font-medium text-center">R$ {item.totalLaborPaid.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm text-indigo-600 font-medium text-center">R$ {item.grossProfit.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-green-600 text-center">R$ {item.netProfit.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-center">
+                  <tr key={item.id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="px-3 py-2 text-[10px] font-mono text-gray-400 text-center">#{item.id}</td>
+                    <td className="px-3 py-2 text-[10px] text-gray-600 text-center">{new Date(item.date).toLocaleDateString('pt-BR')}</td>
+                    <td className="px-3 py-2 text-xs font-bold text-gray-800 text-left">{item.productName}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600 text-center">{item.quantity}</td>
+                    <td className="px-3 py-2 text-xs text-blue-600 font-medium text-right">R$ {item.totalValue.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-xs text-orange-600 font-medium text-right">R$ {item.totalLaborPaid.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-xs text-indigo-600 font-medium text-right">R$ {item.grossProfit.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-xs font-bold text-green-600 text-right">R$ {item.netProfit.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-center">
                       <button 
                         onClick={() => onDelete(item.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
+                        className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-all"
+                        title="Excluir lançamento"
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={14} />
                       </button>
                     </td>
                   </tr>
@@ -228,13 +321,13 @@ const SummaryCard = ({ title, value, icon, color }: { title: string, value: numb
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
-      <div className={`p-3 rounded-lg ${bgClasses[color]}`}>
+    <div className="bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+      <div className={`p-1.5 rounded-lg ${bgClasses[color]}`}>
         {icon}
       </div>
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{title}</p>
-        <p className="text-xl font-bold text-gray-800">R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{title}</p>
+        <p className="text-xs font-bold text-gray-800">R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
       </div>
     </div>
   );

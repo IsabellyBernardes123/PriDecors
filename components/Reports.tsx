@@ -108,7 +108,7 @@ const Reports: React.FC<Props> = ({ products, logs, expenses }) => {
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Relatório de Produção");
-      XLSX.writeFile(wb, `Relatorio_Producao_${new Date().toISOString().split('T')[0]}.xlsx`);
+      XLSX.writeFile(wb, `Relatorio_PriDecor_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (error) {
       console.error("Erro ao exportar Excel:", error);
       alert("Erro ao gerar o arquivo Excel.");
@@ -118,52 +118,78 @@ const Reports: React.FC<Props> = ({ products, logs, expenses }) => {
   const exportToPDF = () => {
     try {
       const doc = new jsPDF();
-      
-      doc.setFontSize(22);
-      doc.setTextColor(79, 70, 229);
-      doc.text("PriDecor", 14, 20);
-      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 31);
-      doc.setDrawColor(229, 231, 235);
-      doc.line(14, 36, 196, 36);
+      const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
-      doc.setFontSize(16);
-      doc.setTextColor(31, 41, 55);
-      doc.text("Relatório Gerencial Detalhado", 14, 48);
+      // Cabeçalho Principal
+      doc.setFontSize(22);
+      doc.setTextColor(79, 70, 229); // Indigo-600
+      doc.text("PriDecor", 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139); // Gray-500
+      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 28);
+      
+      doc.setDrawColor(229, 231, 235); // Gray-200
+      doc.line(14, 32, 196, 32);
+
+      // Título do Relatório
+      doc.setFontSize(14);
+      doc.setTextColor(31, 41, 55); // Gray-800
+      doc.setFont("helvetica", "bold");
+      doc.text("Relatório Gerencial Detalhado", 14, 42);
 
       const tableData = filteredData.map(item => [
         item.id,
         new Date(item.date).toLocaleDateString('pt-BR'),
         item.productName,
         item.quantity.toString(),
-        `R$ ${item.totalValue.toFixed(2)}`,
-        `R$ ${item.netProfit.toFixed(2)}`
+        formatCurrency(item.totalValue),
+        formatCurrency(item.netProfit)
       ]);
 
       autoTable(doc, {
-        startY: 62,
+        startY: 48,
         head: [['ID', 'Data', 'Produto', 'Qtd', 'Faturamento', 'Lucro Líq.']],
         body: tableData,
         theme: 'striped',
         styles: { halign: 'center', fontSize: 8 }, 
-        headStyles: { fillColor: [79, 70, 229] }
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
+        columnStyles: {
+          2: { halign: 'left' }, // Alinha nome do produto à esquerda
+          4: { halign: 'right' },
+          5: { halign: 'right' }
+        }
       });
 
-      const finalY = (doc as any).lastAutoTable?.finalY || 70;
-
+      const finalY = (doc as any).lastAutoTable?.finalY || 60;
+      
+      // Seção de Consolidado Financeiro
       doc.setFontSize(12);
       doc.setTextColor(31, 41, 55);
+      doc.setFont("helvetica", "bold");
       doc.text("Consolidado Financeiro", 14, finalY + 15);
       
       doc.setFontSize(10);
-      doc.text(`Faturamento: R$ ${totals.totalValue.toLocaleString('pt-BR')}`, 14, finalY + 23);
-      doc.text(`Mão de Obra: R$ ${totals.totalLabor.toLocaleString('pt-BR')}`, 14, finalY + 29);
-      doc.text(`Imposto (7,5%): R$ ${totals.totalTax.toLocaleString('pt-BR')}`, 14, finalY + 35);
-      doc.text(`Despesas Extras: R$ ${totals.totalOtherExpenses.toLocaleString('pt-BR')}`, 14, finalY + 41);
+      doc.setTextColor(55, 65, 81);
+      doc.setFont("helvetica", "normal");
       
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(16, 185, 129);
-      doc.text(`SALDO FINAL REAL: R$ ${totals.finalRealProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 52);
+      const lineSpacing = 7;
+      let currentY = finalY + 25;
+
+      doc.text(`Faturamento: ${formatCurrency(totals.totalValue)}`, 14, currentY);
+      currentY += lineSpacing;
+      doc.text(`Mão de Obra: ${formatCurrency(totals.totalLabor)}`, 14, currentY);
+      currentY += lineSpacing;
+      doc.text(`Imposto (7,5%): ${formatCurrency(totals.totalTax)}`, 14, currentY);
+      currentY += lineSpacing;
+      doc.text(`Despesas Extras: ${formatCurrency(totals.totalOtherExpenses)}`, 14, currentY);
+      
+      // Saldo Final Real com Destaque
+      currentY += lineSpacing + 5;
+      doc.setFontSize(13);
+      doc.setTextColor(16, 185, 129); // Green-500
+      doc.setFont("helvetica", "bold");
+      doc.text(`SALDO FINAL REAL: ${formatCurrency(totals.finalRealProfit)}`, 14, currentY);
 
       doc.save(`Relatorio_PriDecor_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
@@ -173,80 +199,73 @@ const Reports: React.FC<Props> = ({ products, logs, expenses }) => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-4 animate-in fade-in duration-500 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Relatórios Financeiros</h1>
-          <p className="text-gray-500">Saldo real abatendo impostos e despesas extras.</p>
+          <h1 className="text-lg font-bold text-gray-800">Relatórios</h1>
         </div>
-        <div className="flex gap-2">
-          <button onClick={exportToExcel} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors shadow-sm">
-            <Download size={18} /> Excel
+        <div className="flex gap-1.5">
+          <button onClick={exportToExcel} className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-xs">
+            <Download size={14} /> Excel
           </button>
-          <button onClick={exportToPDF} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors shadow-sm">
-            <FileText size={18} /> PDF
+          <button onClick={exportToPDF} className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-xs">
+            <FileText size={14} /> PDF
           </button>
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-400 uppercase">Data Inicial</label>
-            <input type="date" value={filters.startDate} onChange={(e) => setFilters({...filters, startDate: e.target.value})} className="w-full p-2 border border-gray-200 rounded-lg outline-none" />
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="space-y-0.5">
+            <label className="text-[10px] font-bold text-gray-400 uppercase">Início</label>
+            <input type="date" value={filters.startDate} onChange={(e) => setFilters({...filters, startDate: e.target.value})} className="w-full p-1.5 border border-gray-200 rounded text-xs outline-none" />
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-400 uppercase">Data Final</label>
-            <input type="date" value={filters.endDate} onChange={(e) => setFilters({...filters, endDate: e.target.value})} className="w-full p-2 border border-gray-200 rounded-lg outline-none" />
+          <div className="space-y-0.5">
+            <label className="text-[10px] font-bold text-gray-400 uppercase">Fim</label>
+            <input type="date" value={filters.endDate} onChange={(e) => setFilters({...filters, endDate: e.target.value})} className="w-full p-1.5 border border-gray-200 rounded text-xs outline-none" />
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-400 uppercase">Produto</label>
-            <select value={filters.productId} onChange={(e) => setFilters({...filters, productId: e.target.value})} className="w-full p-2 border border-gray-200 rounded-lg outline-none bg-white">
-              <option value="">Todos os Produtos</option>
+          <div className="space-y-0.5">
+            <label className="text-[10px] font-bold text-gray-400 uppercase">Produto</label>
+            <select value={filters.productId} onChange={(e) => setFilters({...filters, productId: e.target.value})} className="w-full p-1.5 border border-gray-200 rounded text-xs outline-none bg-white">
+              <option value="">Todos</option>
               {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          <div className="flex gap-2 items-end">
-            <button onClick={() => applyQuickFilter('lastWeek')} className="flex-1 text-[10px] font-bold bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-100 transition-colors uppercase h-[42px]">Semana</button>
-            <button onClick={() => applyQuickFilter('currentMonth')} className="flex-1 text-[10px] font-bold bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-100 transition-colors uppercase h-[42px]">Mês</button>
+          <div className="flex gap-1.5 items-end">
+            <button onClick={() => applyQuickFilter('lastWeek')} className="flex-1 text-[9px] font-bold bg-indigo-50 text-indigo-600 p-1.5 rounded hover:bg-indigo-100 transition-colors uppercase h-[30px]">Semana</button>
+            <button onClick={() => applyQuickFilter('currentMonth')} className="flex-1 text-[9px] font-bold bg-indigo-50 text-indigo-600 p-1.5 rounded hover:bg-indigo-100 transition-colors uppercase h-[30px]">Mês</button>
           </div>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        <SummaryCard title="Lucro Bruto" value={totals.totalGrossProfit.toFixed(2)} unit="R$" icon={<BadgeDollarSign />} color="indigo" />
-        <SummaryCard title="Impostos" value={totals.totalTax.toFixed(2)} unit="R$" icon={<Percent className="text-red-500"/>} color="orange" />
-        <SummaryCard title="Desp. Extras" value={totals.totalOtherExpenses.toFixed(2)} unit="R$" icon={<Receipt className="text-rose-500" />} color="red" />
-        <SummaryCard title="Saldo Final" value={totals.finalRealProfit.toFixed(2)} unit="R$" icon={<TrendingUp />} color="green" />
-        <SummaryCard title="Qtd. Total" value={totals.totalQuantity.toString()} unit="" icon={<Calculator className="text-purple-600" />} color="purple" />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <SummaryCard title="Bruto" value={totals.totalGrossProfit.toFixed(2)} unit="R$" icon={<BadgeDollarSign size={14}/>} color="indigo" />
+        <SummaryCard title="Impostos" value={totals.totalTax.toFixed(2)} unit="R$" icon={<Percent size={14} className="text-red-500"/>} color="orange" />
+        <SummaryCard title="Desp. Extras" value={totals.totalOtherExpenses.toFixed(2)} unit="R$" icon={<Receipt size={14} className="text-rose-500" />} color="red" />
+        <SummaryCard title="Saldo Final" value={totals.finalRealProfit.toFixed(2)} unit="R$" icon={<TrendingUp size={14}/>} color="green" />
+        <SummaryCard title="Qtd. Total" value={totals.totalQuantity.toString()} unit="" icon={<Calculator size={14} className="text-purple-600" />} color="purple" />
       </div>
 
-      {/* Tabela Simplificada no Relatório */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-50 bg-gray-50/50">
-          <h2 className="text-xl font-bold text-gray-800">Resumo da Operação</h2>
+        <div className="p-3 border-b border-gray-50 bg-gray-50/50">
+          <h2 className="text-xs font-bold text-gray-800 uppercase tracking-widest">Resumo Consolidado</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-center">
             <thead>
-              <tr className="bg-white border-b border-gray-100 text-center">
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Faturamento</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">(-) Mão de Obra</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">(=) Lucro Bruto</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">(-) Impostos</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">(-) Desp. Extras</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase text-green-600">Saldo Final</th>
+              <tr className="bg-white border-b border-gray-100">
+                <th className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase">Faturamento</th>
+                <th className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase">Lucro Bruto</th>
+                <th className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase">Impostos</th>
+                <th className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase">Extras</th>
+                <th className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase text-green-600">Saldo Final</th>
               </tr>
             </thead>
             <tbody>
-              <tr className="text-center font-medium">
-                <td className="px-6 py-4 text-gray-800">R$ {totals.totalValue.toFixed(2)}</td>
-                <td className="px-6 py-4 text-red-400">R$ {totals.totalLabor.toFixed(2)}</td>
-                <td className="px-6 py-4 text-indigo-600 font-bold">R$ {totals.totalGrossProfit.toFixed(2)}</td>
-                <td className="px-6 py-4 text-orange-400">R$ {totals.totalTax.toFixed(2)}</td>
-                <td className="px-6 py-4 text-rose-500">R$ {totals.totalOtherExpenses.toFixed(2)}</td>
-                <td className="px-6 py-4 text-green-600 font-extrabold text-lg">R$ {totals.finalRealProfit.toFixed(2)}</td>
+              <tr className="text-center">
+                <td className="px-4 py-2 text-[11px] text-gray-800">R$ {totals.totalValue.toFixed(2)}</td>
+                <td className="px-4 py-2 text-[11px] text-indigo-600 font-bold">R$ {totals.totalGrossProfit.toFixed(2)}</td>
+                <td className="px-4 py-2 text-[11px] text-orange-400">R$ {totals.totalTax.toFixed(2)}</td>
+                <td className="px-4 py-2 text-[11px] text-rose-500">R$ {totals.totalOtherExpenses.toFixed(2)}</td>
+                <td className="px-4 py-2 text-green-600 font-extrabold text-sm">R$ {totals.finalRealProfit.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
@@ -267,13 +286,13 @@ const SummaryCard = ({ title, value, unit, icon, color }: { title: string, value
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
-      <div className={`p-3 rounded-lg ${bgClasses[color]}`}>
+    <div className="bg-white p-2 rounded-xl border border-gray-100 shadow-sm flex items-center gap-2">
+      <div className={`p-1.5 rounded ${bgClasses[color]}`}>
         {icon}
       </div>
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{title}</p>
-        <p className="text-xl font-bold text-gray-800">
+        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-0.5">{title}</p>
+        <p className="text-[11px] font-bold text-gray-800">
           {unit} {parseFloat(value).toLocaleString('pt-BR', { minimumFractionDigits: unit === 'R$' ? 2 : 0 })}
         </p>
       </div>

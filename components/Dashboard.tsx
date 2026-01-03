@@ -102,48 +102,42 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
 
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
   const months = [
-    { value: '01', label: 'Janeiro' }, { value: '02', label: 'Fevereiro' },
-    { value: '03', label: 'Março' }, { value: '04', label: 'Abril' },
-    { value: '05', label: 'Maio' }, { value: '06', label: 'Junho' },
-    { value: '07', label: 'Julho' }, { value: '08', label: 'Agosto' },
-    { value: '09', label: 'Setembro' }, { value: '10', label: 'Outubro' },
-    { value: '11', label: 'Novembro' }, { value: '12', label: 'Dezembro' }
+    { value: '01', label: 'Jan' }, { value: '02', label: 'Fev' },
+    { value: '03', label: 'Mar' }, { value: '04', label: 'Abr' },
+    { value: '05', label: 'Mai' }, { value: '06', label: 'Jun' },
+    { value: '07', label: 'Jul' }, { value: '08', label: 'Ago' },
+    { value: '09', label: 'Set' }, { value: '10', label: 'Out' },
+    { value: '11', label: 'Nov' }, { value: '12', label: 'Dez' }
   ];
   const years = Array.from({ length: 5 }, (_, i) => (now.getFullYear() - 2 + i).toString());
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 animate-in fade-in duration-500 pb-6">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-1.5 text-indigo-600 mb-1">
-            <Sparkles size={16} className="animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Painel Administrativo</span>
+          <div className="flex items-center gap-1 text-indigo-600">
+            <Sparkles size={12} className="animate-pulse" />
+            <span className="text-[9px] font-bold uppercase tracking-widest">Painel Administrativo</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
+          <h1 className="text-lg font-extrabold text-gray-900 tracking-tight">
             Olá, <span className="text-indigo-600">Priscila!</span> 👋
           </h1>
-          <p className="text-sm text-gray-500">
-            Acompanhe o fechamento de <span className="font-bold text-gray-700">{months.find(m => m.value === selectedMonth)?.label}</span>.
-          </p>
         </div>
 
-        <div className="bg-white p-2 px-3 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3 self-start sm:self-center w-full sm:w-auto">
-          <div className="flex items-center gap-1.5 text-gray-400">
-            <Calendar size={18} />
-            <span className="text-[10px] font-bold uppercase hidden xs:inline">Período:</span>
-          </div>
-          <div className="flex gap-2 flex-1">
+        <div className="bg-white p-1 px-2 rounded-lg shadow-sm border border-gray-100 flex items-center gap-2 self-start sm:self-center">
+          <Calendar size={14} className="text-gray-400" />
+          <div className="flex gap-1.5">
             <select 
               value={selectedMonth} 
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="flex-1 bg-gray-50 border-none text-xs font-bold text-gray-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="bg-gray-50 border-none text-[10px] font-bold text-gray-700 rounded px-2 py-0.5 focus:ring-1 focus:ring-indigo-500 outline-none"
             >
               {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
             <select 
               value={selectedYear} 
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="flex-1 bg-gray-50 border-none text-xs font-bold text-gray-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="bg-gray-50 border-none text-[10px] font-bold text-gray-700 rounded px-2 py-0.5 focus:ring-1 focus:ring-indigo-500 outline-none"
             >
               {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
@@ -152,59 +146,56 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
       </header>
 
       {/* Fileira 1: Faturamento, Mão de Obra, Lucro Bruto, Lucro Líquido */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Faturamento" value={`R$ ${stats.revenue.toFixed(2)}`} icon={<Calculator className="text-blue-600" size={18} />} change="Receita" color="blue" />
-        <StatCard title="Mão de Obra" value={`R$ ${stats.labor.toFixed(2)}`} icon={<Users className="text-orange-500" size={18} />} change="Produção" color="orange" />
-        <StatCard title="Lucro Bruto" value={`R$ ${stats.grossProfit.toFixed(2)}`} icon={<BadgeDollarSign className="text-indigo-600" size={18} />} change="Confec." color="indigo" />
-        <StatCard title="Lucro Líquido" value={`R$ ${stats.productionNetProfit.toFixed(2)}`} icon={<TrendingUp className="text-green-500" size={18} />} change="Líq. Prod." color="green" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard title="Faturamento" value={`R$ ${stats.revenue.toFixed(2)}`} icon={<Calculator className="text-blue-600" size={14} />} color="blue" />
+        <StatCard title="Mão de Obra" value={`R$ ${stats.labor.toFixed(2)}`} icon={<Users className="text-orange-500" size={14} />} color="orange" />
+        <StatCard title="Lucro Bruto" value={`R$ ${stats.grossProfit.toFixed(2)}`} icon={<BadgeDollarSign className="text-indigo-600" size={14} />} color="indigo" />
+        <StatCard title="Lucro Líquido" value={`R$ ${stats.productionNetProfit.toFixed(2)}`} icon={<TrendingUp className="text-green-500" size={14} />} color="green" />
       </div>
 
       {/* Fileira 2: Total Produzido, Imposto, Outras Despesas, Valor Final */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Total Produzido" value={`${stats.totalQuantity} un.`} icon={<Layers className="text-purple-600" size={18} />} change="Volume" color="blue" />
-        <StatCard title="Imposto" value={`R$ ${stats.taxAmount.toFixed(2)}`} icon={<Percent className="text-red-500" size={18} />} change="Governo" color="red" />
-        <StatCard title="Outras Despesas" value={`R$ ${stats.otherExpenses.toFixed(2)}`} icon={<Receipt className="text-rose-500" size={18} />} change="Variáv." color="red" />
-        <StatCard title="Valor Final" value={`R$ ${stats.finalNetProfit.toFixed(2)}`} icon={<Wallet className="text-emerald-600" size={18} />} change="Saldo Real" color="green" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard title="Total Produzido" value={`${stats.totalQuantity} un.`} icon={<Layers className="text-purple-600" size={14} />} color="blue" />
+        <StatCard title="Imposto" value={`R$ ${stats.taxAmount.toFixed(2)}`} icon={<Percent className="text-red-500" size={14} />} color="red" />
+        <StatCard title="Outras Despesas" value={`R$ ${stats.otherExpenses.toFixed(2)}`} icon={<Receipt className="text-rose-500" size={14} />} color="red" />
+        <StatCard title="Valor Final" value={`R$ ${stats.finalNetProfit.toFixed(2)}`} icon={<Wallet className="text-emerald-600" size={14} />} color="green" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-sm font-bold text-gray-800">Desempenho Diário</h3>
-            <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Mês Atual</span>
-          </div>
-          <div className="h-64 sm:h-72 w-full min-h-[256px]">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <h3 className="text-xs font-bold text-gray-800 mb-4">Desempenho Diário</h3>
+          <div className="h-48 sm:h-56 w-full min-h-[192px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} dy={5} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} />
                 <Tooltip 
-                  contentStyle={{ fontSize: '11px', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ fontSize: '10px', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   labelFormatter={(label) => `Dia ${label}`}
                 />
                 <Line name="L. Bruto" type="monotone" dataKey="grossProfit" stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" dot={false} />
-                <Line name="L. Líquido" type="monotone" dataKey="netProfit" stroke="#6366f1" strokeWidth={3} dot={{ fill: '#6366f1', r: 4 }} activeDot={{ r: 6 }} />
+                <Line name="L. Líquido" type="monotone" dataKey="netProfit" stroke="#6366f1" strokeWidth={2} dot={{ fill: '#6366f1', r: 3 }} activeDot={{ r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-800 mb-6">Mix de Produção</h3>
-          <div className="h-64 sm:h-72 flex flex-col xs:flex-row items-center min-h-[256px]">
+        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+          <h3 className="text-xs font-bold text-gray-800 mb-4">Mix de Produção</h3>
+          <div className="h-48 sm:h-56 flex flex-col xs:flex-row items-center min-h-[192px]">
             {productDistribution.length > 0 ? (
               <>
-                <div className="flex-1 w-full h-full min-h-[180px]">
+                <div className="flex-1 w-full h-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={productDistribution}
                         cx="50%"
                         cy="50%"
-                        innerRadius={50}
-                        outerRadius={75}
-                        paddingAngle={5}
+                        innerRadius={30}
+                        outerRadius={50}
+                        paddingAngle={4}
                         dataKey="value"
                       >
                         {productDistribution.map((entry, index) => (
@@ -215,22 +206,22 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="w-full xs:w-1/2 space-y-2 mt-4 xs:mt-0 xs:pl-6">
+                <div className="w-full xs:w-1/2 space-y-1 mt-2 xs:mt-0 xs:pl-4">
                   {productDistribution.map((entry, index) => (
-                    <div key={entry.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                        <span className="text-[11px] font-semibold text-gray-600 truncate max-w-[120px]">{entry.name}</span>
+                    <div key={entry.name} className="flex items-center justify-between p-1 rounded hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                        <span className="text-[9px] font-semibold text-gray-600 truncate">{entry.name}</span>
                       </div>
-                      <span className="text-[11px] font-bold text-gray-900">{entry.value} un.</span>
+                      <span className="text-[9px] font-bold text-gray-900 ml-1 shrink-0">{entry.value}u</span>
                     </div>
                   ))}
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-gray-400 space-y-2">
-                <Package className="opacity-20" size={48} />
-                <p className="text-xs italic">Nenhuma produção lançada neste período.</p>
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-300 space-y-1">
+                <Package className="opacity-10" size={32} />
+                <p className="text-[10px] italic">Sem dados.</p>
               </div>
             )}
           </div>
@@ -240,7 +231,7 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
   );
 };
 
-const StatCard = ({ title, value, icon, change, color = 'indigo' }: { title: string, value: string, icon: React.ReactNode, change: string, color?: string }) => {
+const StatCard = ({ title, value, icon, color = 'indigo' }: { title: string, value: string, icon: React.ReactNode, color?: string }) => {
   const bgMap: Record<string, string> = {
     indigo: 'bg-indigo-50 text-indigo-600',
     blue: 'bg-blue-50 text-blue-600',
@@ -250,16 +241,13 @@ const StatCard = ({ title, value, icon, change, color = 'indigo' }: { title: str
   };
 
   return (
-    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-lg transition-all duration-300 min-h-[105px] group">
-      <div className="flex items-center justify-between mb-2">
-        <div className="bg-gray-50 p-2 rounded-xl group-hover:scale-110 transition-transform">{icon}</div>
-        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${bgMap[color] || bgMap.indigo}`}>
-          {change}
-        </span>
+    <div className="bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow transition-all min-h-[85px] group">
+      <div className="flex items-center justify-between mb-1">
+        <div className="bg-gray-50 p-1.5 rounded-lg group-hover:scale-105 transition-transform">{icon}</div>
       </div>
       <div>
-        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1.5">{title}</p>
-        <p className="text-lg font-bold text-gray-900 truncate tracking-tight">{value}</p>
+        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{title}</p>
+        <p className="text-sm font-bold text-gray-900 truncate tracking-tight">{value}</p>
       </div>
     </div>
   );
