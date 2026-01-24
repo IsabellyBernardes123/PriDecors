@@ -162,7 +162,7 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm overflow-hidden min-h-[300px]">
           <h3 className="text-xs font-bold text-gray-800 mb-4">Desempenho Diário</h3>
-          <div className="h-[250px] w-full">
+          <div className="h-[250px] w-full" style={{ minWidth: 0 }}>
             <ResponsiveContainer width="100%" height="100%" minHeight={200}>
               <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -184,7 +184,7 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
           <div className="h-[250px] flex flex-col xs:flex-row items-center">
             {productDistribution.length > 0 ? (
               <>
-                <div className="flex-1 w-full h-full">
+                <div className="flex-1 w-full h-full" style={{ minWidth: 0 }}>
                   <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                     <PieChart>
                       <Pie
@@ -230,14 +230,6 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
 };
 
 const StatCard = ({ title, value, icon, color = 'indigo' }: { title: string, value: string, icon: React.ReactNode, color?: string }) => {
-  const bgMap: Record<string, string> = {
-    indigo: 'bg-indigo-50 text-indigo-600',
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    red: 'bg-red-50 text-red-600',
-    orange: 'bg-orange-50 text-orange-600'
-  };
-
   return (
     <div className="bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow transition-all min-h-[85px] group">
       <div className="flex items-center justify-between mb-1">

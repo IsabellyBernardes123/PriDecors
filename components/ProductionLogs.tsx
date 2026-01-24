@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Package, Hash, Calculator, TrendingUp, DollarSign, BadgeDollarSign, Search, ChevronDown, X, FileCode, CheckCircle2, AlertCircle, Loader2, Sparkles, Save, ShoppingBag, ReceiptText } from 'lucide-react';
+import { Plus, Trash2, Calendar, Package, Hash, Calculator, TrendingUp, DollarSign, BadgeDollarSign, Search, ChevronDown, X, FileCode, CheckCircle2, AlertCircle, Loader2, Sparkles, Save, ShoppingBag, ReceiptText, Pencil } from 'lucide-react';
 import { Product, ProductionLog, ProductionReportItem, Category } from '../types';
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   categories: Category[];
   logs: ProductionLog[];
   onAdd: (log: ProductionLog) => Promise<void>;
+  onUpdate: (log: ProductionLog) => Promise<void>;
   onDelete: (id: string) => void;
   onAddProduct: (product: Product) => Promise<Product | null>;
   onAddCategory: (name: string) => Promise<Category | null>;
@@ -21,12 +22,13 @@ interface PendingXMLItem {
   laborCost: number;
 }
 
-const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, onDelete, onAddProduct, onAddCategory, onTogglePaid }) => {
+const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, onUpdate, onDelete, onAddProduct, onAddCategory, onTogglePaid }) => {
   const TAX_RATE = 0.075;
   const [formData, setFormData] = useState({ productId: '', date: new Date().toISOString().split('T')[0], quantity: '', invoiceNumber: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
   
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [pendingItems, setPendingItems] = useState<PendingXMLItem[]>([]);
@@ -66,11 +68,33 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
     totalNetProfit: acc.totalNetProfit + curr.netProfit
   }), { totalValue: 0, totalLabor: 0, totalGrossProfit: 0, totalNetProfit: 0 }), [reportData]);
 
-  const getElementValue = (parent: Element | Document, tag: string) => {
-    const el = parent.getElementsByTagName(tag);
-    if (el.length > 0) return el[0].textContent || "";
-    const qEl = (parent as any).querySelectorAll?.(tag);
-    return qEl && qEl.length > 0 ? qEl[0].textContent || "" : "";
+  // Função de busca de tag aprimorada para XML
+  const getTagValue = (doc: Document | Element, tagName: string): string => {
+    const elements = doc.getElementsByTagName(tagName);
+    if (elements && elements.length > 0) {
+      return elements[0].textContent?.trim() || "";
+    }
+    // Fallback para seletores mais complexos se necessário
+    return "";
+  };
+
+  const handleEditClick = (log: ProductionLog) => {
+    const product = products.find(p => p.id === log.productId);
+    setEditingLogId(log.id);
+    setFormData({
+      productId: log.productId,
+      date: log.date,
+      quantity: log.quantity.toString(),
+      invoiceNumber: log.invoiceNumber || ''
+    });
+    setSearchTerm(product?.name || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLogId(null);
+    setFormData({ productId: '', date: new Date().toISOString().split('T')[0], quantity: '', invoiceNumber: '' });
+    setSearchTerm('');
   };
 
   const handleImportXML = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,32 +104,34 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const xmlDoc = new DOMParser().parseFromString(event.target?.result as string, "text/xml");
+        const content = event.target?.result as string;
+        const xmlDoc = new DOMParser().parseFromString(content, "text/xml");
         
-        // nNF = Número da Nota Fiscal
-        const nfNum = getElementValue(xmlDoc, "nNF");
+        // Busca o número da nota (nNF)
+        const nfNum = getTagValue(xmlDoc, "nNF");
         setXmlInvoiceNumber(nfNum);
 
-        // vVenc = Data de Vencimento
-        let foundDate = getElementValue(xmlDoc, "vVenc") || getElementValue(xmlDoc, "dhEmi") || getElementValue(xmlDoc, "dEmi");
+        // Busca a data (prioriza vencimento vVenc)
+        let foundDate = getTagValue(xmlDoc, "vVenc") || getTagValue(xmlDoc, "dhEmi") || getTagValue(xmlDoc, "dEmi");
         if (foundDate.includes('T')) foundDate = foundDate.split('T')[0];
-        
         const finalDate = foundDate || new Date().toISOString().split('T')[0];
         setXmlDate(finalDate);
 
         const items = xmlDoc.querySelectorAll("det");
         const newPending: PendingXMLItem[] = [];
         const existingFound: {productId: string, quantity: number}[] = [];
-        
+
         for (const item of Array.from(items)) {
           const prodEl = item.querySelector("prod");
           if (!prodEl) continue;
-          const xProd = getElementValue(prodEl as any, "xProd").trim();
-          const qCom = parseFloat(getElementValue(prodEl as any, "qCom") || "0");
-          const vUnCom = parseFloat(getElementValue(prodEl as any, "vUnCom") || "0");
+          
+          const xProd = getTagValue(prodEl, "xProd");
+          const qCom = parseFloat(getTagValue(prodEl, "qCom") || "0");
+          const vUnCom = parseFloat(getTagValue(prodEl, "vUnCom") || "0");
+          
           if (!xProd) continue;
 
-          const matchedProduct = products.find(p => p.name.trim().toLowerCase() === xProd.toLowerCase());
+          const matchedProduct = products.find(p => p.name.trim().toLowerCase() === xProd.trim().toLowerCase());
           
           if (matchedProduct) {
             existingFound.push({ productId: matchedProduct.id, quantity: Math.floor(qCom) });
@@ -120,15 +146,22 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
           setShowPendingModal(true);
         } else if (existingFound.length > 0) {
           for (const entry of existingFound) {
-            await onAdd({ id: '', productId: entry.productId, date: finalDate, quantity: entry.quantity, paid: false, invoiceNumber: nfNum });
+            await onAdd({ 
+              id: '', 
+              productId: entry.productId, 
+              date: finalDate, 
+              quantity: entry.quantity, 
+              paid: false, 
+              invoiceNumber: nfNum 
+            });
           }
-          alert(`Importação concluída! NF: ${nfNum} | Vencimento: ${finalDate}`);
+          alert(`Sucesso! NF ${nfNum} importada com ${existingFound.length} itens.`);
         } else {
-          alert("Nenhum item reconhecido no XML.");
+          alert("Nenhum item válido encontrado no XML.");
         }
       } catch (err) { 
-        console.error("XML Error:", err);
-        alert("Erro ao processar o arquivo XML. Verifique se é uma NF-e válida."); 
+        console.error("Erro XML:", err);
+        alert("Erro ao processar o arquivo XML."); 
       } finally { 
         setIsImporting(false); 
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -145,27 +178,68 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
         const newCat = await onAddCategory('Importados XML');
         if (newCat) targetCatId = newCat.id;
       }
-
+      
+      // Salva itens novos
       for (const item of pendingItems) {
         const savedProduct = await onAddProduct({
           id: '', name: item.name, manufacturingValue: item.manufacturingValue, laborCost: item.laborCost, categoryId: targetCatId || ''
         });
         if (savedProduct) {
-          await onAdd({ id: '', productId: savedProduct.id, date: xmlDate, quantity: item.quantity, paid: false, invoiceNumber: xmlInvoiceNumber });
+          await onAdd({ 
+            id: '', 
+            productId: savedProduct.id, 
+            date: xmlDate, 
+            quantity: item.quantity, 
+            paid: false, 
+            invoiceNumber: xmlInvoiceNumber 
+          });
         }
       }
 
+      // Salva itens que já existiam mas estavam no mesmo XML
       for (const entry of existingItemsInXML) {
-        await onAdd({ id: '', productId: entry.productId, date: xmlDate, quantity: entry.quantity, paid: false, invoiceNumber: xmlInvoiceNumber });
+        await onAdd({ 
+          id: '', 
+          productId: entry.productId, 
+          date: xmlDate, 
+          quantity: entry.quantity, 
+          paid: false, 
+          invoiceNumber: xmlInvoiceNumber 
+        });
       }
 
       setShowPendingModal(false);
-      alert("Lançamentos de importação finalizados!");
+      alert(`Importação da NF ${xmlInvoiceNumber} concluída com sucesso!`);
     } catch (err: any) {
-      alert(`Erro: ${err.message}`);
+      alert(`Erro na confirmação: ${err.message}`);
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.productId) return;
+    
+    const logData: ProductionLog = {
+      id: editingLogId || '',
+      productId: formData.productId,
+      date: formData.date,
+      quantity: parseInt(formData.quantity),
+      paid: editingLogId ? logs.find(l => l.id === editingLogId)?.paid : false,
+      invoiceNumber: formData.invoiceNumber.trim()
+    };
+
+    try {
+      if (editingLogId) {
+        await onUpdate(logData);
+        setEditingLogId(null);
+      } else {
+        await onAdd(logData);
+      }
+      setFormData({ productId: '', date: new Date().toISOString().split('T')[0], quantity: '', invoiceNumber: '' });
+      setSearchTerm('');
+    } catch (err) {}
   };
 
   return (
@@ -179,15 +253,20 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-base font-bold flex items-center gap-2"><Plus className="text-indigo-600" size={18} /> Lançar Produção</h2>
-          <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg text-xs font-bold border border-emerald-200 flex items-center gap-2 hover:bg-emerald-100 transition-all shadow-sm group">
-            {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} className="text-emerald-500 group-hover:scale-110 transition-transform" />} 
-            Importar XML (Vencimento + NF)
-            <input type="file" accept=".xml" className="hidden" ref={fileInputRef} onChange={handleImportXML} />
-          </button>
+          <h2 className="text-base font-bold flex items-center gap-2">
+            {editingLogId ? <Pencil className="text-indigo-600" size={18} /> : <Plus className="text-indigo-600" size={18} />}
+            {editingLogId ? 'Editar Lançamento' : 'Lançar Produção'}
+          </h2>
+          {!editingLogId && (
+            <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg text-xs font-bold border border-emerald-200 flex items-center gap-2 hover:bg-emerald-100 transition-all shadow-sm group">
+              {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} className="text-emerald-500 group-hover:scale-110 transition-transform" />} 
+              Importar XML (Vencimento + NF)
+              <input type="file" accept=".xml" className="hidden" ref={fileInputRef} onChange={handleImportXML} />
+            </button>
+          )}
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); if (formData.productId) onAdd({ id: '', productId: formData.productId, date: formData.date, quantity: parseInt(formData.quantity), paid: false, invoiceNumber: formData.invoiceNumber }).then(() => { setFormData({ ...formData, quantity: '', invoiceNumber: '' }); setSearchTerm(''); }); }} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
           <div className="relative md:col-span-2" ref={dropdownRef}>
             <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Produto</label>
             <div className="relative">
@@ -209,9 +288,18 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
           <div><label className="text-[10px] font-bold text-gray-500 uppercase ml-1">NF</label><input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-xs outline-none bg-gray-50" placeholder="Número..." /></div>
           <div><label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Vencimento</label><input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-xs outline-none bg-gray-50" required /></div>
           <div><label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Quantidade</label><input type="number" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-xs outline-none bg-gray-50" placeholder="0" required /></div>
-          <button type="submit" disabled={!formData.productId} className={`w-full font-bold py-2 rounded-xl text-xs h-[38px] transition-all flex items-center justify-center gap-2 md:col-span-5 lg:col-span-1 ${formData.productId ? 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700' : 'bg-gray-100 text-gray-400'}`}>
-            <Plus size={16} /> Lançar Produção
-          </button>
+          
+          <div className="flex gap-2 md:col-span-5 lg:col-span-1">
+            <button type="submit" disabled={!formData.productId} className={`flex-1 font-bold py-2 rounded-xl text-xs h-[38px] transition-all flex items-center justify-center gap-2 ${formData.productId ? 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700' : 'bg-gray-100 text-gray-400'}`}>
+              {editingLogId ? <Save size={16} /> : <Plus size={16} />} 
+              {editingLogId ? 'Atualizar' : 'Lançar'}
+            </button>
+            {editingLogId && (
+              <button type="button" onClick={handleCancelEdit} className="bg-gray-100 text-gray-500 p-2 rounded-xl hover:bg-gray-200 transition-all">
+                <X size={16} />
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -238,7 +326,7 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
             </thead>
             <tbody className="divide-y text-xs">
               {reportData.map(item => (
-                <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${item.paid ? 'bg-green-50/40 italic text-gray-400' : ''}`}>
+                <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${item.paid ? 'bg-green-50/40 italic text-gray-400' : ''} ${editingLogId === item.id ? 'bg-indigo-50' : ''}`}>
                   <td className="px-2 py-2.5 text-center">
                     <input 
                       type="checkbox" 
@@ -256,9 +344,14 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
                   <td className={`px-4 py-2.5 text-right font-medium ${item.paid ? 'text-gray-400' : 'text-indigo-600'}`}>R$ {item.grossProfit.toFixed(2)}</td>
                   <td className={`px-4 py-2.5 text-right font-bold ${item.paid ? 'text-gray-400' : 'text-green-600'}`}>R$ {item.netProfit.toFixed(2)}</td>
                   <td className="px-4 py-2.5 text-center">
-                    <button onClick={() => onDelete(item.id)} className="text-gray-300 hover:text-red-500 p-1 rounded transition-colors">
-                      <Trash2 size={14}/>
-                    </button>
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => handleEditClick(item)} className="text-gray-300 hover:text-indigo-600 p-1 rounded transition-colors" title="Editar lançamento">
+                        <Pencil size={14}/>
+                      </button>
+                      <button onClick={() => onDelete(item.id)} className="text-gray-300 hover:text-red-500 p-1 rounded transition-colors" title="Excluir lançamento">
+                        <Trash2 size={14}/>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -286,7 +379,7 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
             <div className="p-6 max-h-[60vh] overflow-y-auto">
               <div className="mb-4 bg-gray-50 p-3 rounded-lg flex items-center gap-3">
                  <ReceiptText className="text-indigo-500" size={18} />
-                 <span className="text-xs font-bold text-gray-600">NF: {xmlInvoiceNumber || 'Não identificada'}</span>
+                 <span className="text-xs font-bold text-gray-600">NF Identificada: {xmlInvoiceNumber || 'Não encontrada'}</span>
               </div>
               <table className="w-full">
                 <thead className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
