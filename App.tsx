@@ -46,7 +46,7 @@ const App: React.FC = () => {
       if (lErr) throw lErr;
       setLogs((lData || []).map(l => ({
         id: l.id.toString(),
-        productId: l.product_id.toString(),
+        productId: l.product_id?.toString() || '',
         date: l.date,
         quantity: l.quantity,
         paid: !!l.paid,
@@ -167,7 +167,7 @@ const App: React.FC = () => {
         date: log.date,
         quantity: log.quantity,
         paid: !!log.paid,
-        invoice_number: log.invoice_number || null
+        invoice_number: log.invoiceNumber && log.invoiceNumber.trim() !== '' ? log.invoiceNumber.trim() : null
       }]).select();
       if (error) throw error;
       if (data && data[0]) {
@@ -176,6 +176,24 @@ const App: React.FC = () => {
       }
     } catch (err: any) { 
       alert('Erro ao salvar lançamento: ' + err.message); 
+      throw err;
+    }
+  };
+
+  const updateLog = async (log: ProductionLog): Promise<void> => {
+    try {
+      const { error } = await supabase.from('production_logs').update({
+        product_id: parseInt(log.productId),
+        date: log.date,
+        quantity: log.quantity,
+        invoice_number: log.invoiceNumber && log.invoiceNumber.trim() !== '' ? log.invoiceNumber.trim() : null
+      }).eq('id', parseInt(log.id));
+      
+      if (error) throw error;
+      
+      setLogs(prev => prev.map(l => l.id === log.id ? log : l));
+    } catch (err: any) {
+      alert('Erro ao atualizar lançamento: ' + err.message);
       throw err;
     }
   };
@@ -216,7 +234,6 @@ const App: React.FC = () => {
     try {
       const { error } = await supabase.from('expenses').delete().eq('id', parseInt(id));
       if (error) throw error;
-      // Fixed: changed 'x.id' to 'ex.id' as the filter parameter is 'ex'
       setExpenses(expenses.filter(ex => ex.id !== id));
     } catch (err: any) { alert('Erro ao excluir despesa: ' + err.message); }
   };
@@ -252,7 +269,7 @@ const App: React.FC = () => {
             <Route path="/" element={<Dashboard products={products} logs={logs} expenses={expenses} />} />
             <Route path="/categorias" element={<CategoryManagement categories={categories} onAdd={addCategory} onUpdate={updateCategory} onDelete={deleteCategory} />} />
             <Route path="/produtos" element={<ProductManagement products={products} categories={categories} onAdd={addProduct} onUpdate={updateProduct} onDelete={deleteProduct} />} />
-            <Route path="/lancamentos" element={<ProductionLogs products={products} categories={categories} logs={logs} onAdd={addLog} onDelete={deleteLog} onAddProduct={addProduct} onAddCategory={addCategory} onTogglePaid={toggleLogPaid} />} />
+            <Route path="/lancamentos" element={<ProductionLogs products={products} categories={categories} logs={logs} onAdd={addLog} onUpdate={updateLog} onDelete={deleteLog} onAddProduct={addProduct} onAddCategory={addCategory} onTogglePaid={toggleLogPaid} />} />
             <Route path="/despesas" element={<ExpenseManagement expenses={expenses} onAdd={addExpense} onDelete={deleteExpense} />} />
             <Route path="/relatorios" element={<Reports products={products} logs={logs} expenses={expenses} />} />
             <Route path="/ia" element={<AIAssistant products={products} logs={logs} expenses={expenses} />} />
