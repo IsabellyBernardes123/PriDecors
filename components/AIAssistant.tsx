@@ -30,7 +30,6 @@ const AIAssistant: React.FC<Props> = ({ products, logs, expenses }) => {
   }, [messages, isLoading]);
 
   const generateContext = () => {
-    // Limitando os logs para os 30 mais recentes para não exceder o limite de tokens e manter o contexto limpo
     const summary = {
       empresa: "PriDecor - Confecção Têxtil",
       total_produtos: products.length,
@@ -69,7 +68,6 @@ const AIAssistant: React.FC<Props> = ({ products, logs, expenses }) => {
         throw new Error("API_KEY_MISSING");
       }
 
-      // Inicializa a IA conforme as diretrizes mais recentes
       const ai = new GoogleGenAI({ apiKey: apiKey });
       const context = generateContext();
       
@@ -110,22 +108,24 @@ const AIAssistant: React.FC<Props> = ({ products, logs, expenses }) => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-indigo-50 overflow-hidden animate-in fade-in zoom-in duration-300">
-      <div className="bg-indigo-600 p-4 text-white flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
-            <BrainCircuit size={20} className="text-white" />
+      {/* Header Centralizado */}
+      <div className="bg-indigo-600 p-4 text-white relative shadow-md flex items-center justify-center min-h-[70px]">
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2">
+            <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
+              <BrainCircuit size={18} className="text-white" />
+            </div>
+            <h2 className="text-sm font-bold tracking-tight">Cérebro PriDecor</h2>
           </div>
-          <div>
-            <h2 className="text-sm font-bold leading-none">Cérebro PriDecor</h2>
-            <p className="text-[10px] text-indigo-100 mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-              Modelo Gemini 3 Ativo
-            </p>
-          </div>
+          <p className="text-[9px] text-indigo-100 flex items-center gap-1.5 font-medium uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.5)]"></span>
+            Análise Preditiva Gemini 3
+          </p>
         </div>
+        
         <button 
           onClick={() => setMessages([messages[0]])} 
-          className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+          className="absolute right-4 p-2 hover:bg-white/10 rounded-xl transition-all active:scale-90 text-indigo-100 hover:text-white"
           title="Reiniciar conversa"
         >
           <RefreshCcw size={16} />

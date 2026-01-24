@@ -1,333 +1,337 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Package, Hash, Calculator, TrendingUp, DollarSign, BadgeDollarSign, Search, ChevronDown, X } from 'lucide-react';
-import { Product, ProductionLog, ProductionReportItem } from '../types';
+import { Plus, Trash2, Calendar, Package, Hash, Calculator, TrendingUp, DollarSign, BadgeDollarSign, Search, ChevronDown, X, FileCode, CheckCircle2, AlertCircle, Loader2, Sparkles, Save, ShoppingBag, ReceiptText } from 'lucide-react';
+import { Product, ProductionLog, ProductionReportItem, Category } from '../types';
 
 interface Props {
   products: Product[];
+  categories: Category[];
   logs: ProductionLog[];
-  onAdd: (log: ProductionLog) => void;
+  onAdd: (log: ProductionLog) => Promise<void>;
   onDelete: (id: string) => void;
+  onAddProduct: (product: Product) => Promise<Product | null>;
+  onAddCategory: (name: string) => Promise<Category | null>;
+  onTogglePaid?: (id: string, currentStatus: boolean) => Promise<void>;
 }
 
-const ProductionLogs: React.FC<Props> = ({ products, logs, onAdd, onDelete }) => {
+interface PendingXMLItem {
+  name: string;
+  manufacturingValue: number;
+  quantity: number;
+  laborCost: number;
+}
+
+const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, onDelete, onAddProduct, onAddCategory, onTogglePaid }) => {
   const TAX_RATE = 0.075;
-
-  const [formData, setFormData] = useState({
-    productId: '',
-    date: new Date().toISOString().split('T')[0],
-    quantity: ''
-  });
-
+  const [formData, setFormData] = useState({ productId: '', date: new Date().toISOString().split('T')[0], quantity: '', invoiceNumber: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [pendingItems, setPendingItems] = useState<PendingXMLItem[]>([]);
+  const [existingItemsInXML, setExistingItemsInXML] = useState<{productId: string, quantity: number}[]>([]);
+  const [xmlDate, setXmlDate] = useState('');
+  const [xmlInvoiceNumber, setXmlInvoiceNumber] = useState('');
 
-  // Fecha o dropdown ao clicar fora
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsDropdownOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredProducts = useMemo(() => {
-    return products
-      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [products, searchTerm]);
-
-  const selectedProduct = useMemo(() => 
-    products.find(p => p.id === formData.productId),
-    [products, formData.productId]
-  );
+  const filteredProducts = useMemo(() => products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name)), [products, searchTerm]);
 
   const reportData = useMemo<ProductionReportItem[]>(() => {
     return logs.map(log => {
       const product = products.find(p => p.id === log.productId);
-      
-      if (!product) {
-        return {
-          ...log,
-          productName: 'Produto Removido',
-          totalValue: 0,
-          totalLaborPaid: 0,
-          grossProfit: 0,
-          taxAmount: 0,
-          netProfit: 0
-        };
-      }
+      if (!product) return { ...log, productName: 'Removido', totalValue: 0, totalLaborPaid: 0, grossProfit: 0, taxAmount: 0, netProfit: 0 };
       const totalValue = product.manufacturingValue * log.quantity;
       const totalLaborPaid = product.laborCost * log.quantity;
       const grossProfit = totalValue - totalLaborPaid;
       const taxAmount = grossProfit > 0 ? grossProfit * TAX_RATE : 0;
-      const netProfit = grossProfit - taxAmount;
-
-      return {
-        ...log,
-        productName: product.name,
-        totalValue,
-        totalLaborPaid,
-        grossProfit,
-        taxAmount,
-        netProfit
-      };
+      return { ...log, productName: product.name, totalValue, totalLaborPaid, grossProfit, taxAmount, netProfit: grossProfit - taxAmount };
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [logs, products]);
 
-  const totals = useMemo(() => {
-    return reportData.reduce((acc, curr) => ({
-      totalValue: acc.totalValue + curr.totalValue,
-      totalLabor: acc.totalLabor + curr.totalLaborPaid,
-      totalGrossProfit: acc.totalGrossProfit + curr.grossProfit,
-      totalNetProfit: acc.totalNetProfit + curr.netProfit
-    }), { totalValue: 0, totalLabor: 0, totalGrossProfit: 0, totalNetProfit: 0 });
-  }, [reportData]);
+  const totals = useMemo(() => reportData.reduce((acc, curr) => ({
+    totalValue: acc.totalValue + curr.totalValue,
+    totalLabor: acc.totalLabor + curr.totalLaborPaid,
+    totalGrossProfit: acc.totalGrossProfit + curr.grossProfit,
+    totalNetProfit: acc.totalNetProfit + curr.netProfit
+  }), { totalValue: 0, totalLabor: 0, totalGrossProfit: 0, totalNetProfit: 0 }), [reportData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.productId || !formData.date || !formData.quantity) {
-      alert('Selecione um produto e preencha a quantidade.');
-      return;
-    }
-
-    const newLog: ProductionLog = {
-      id: '',
-      productId: formData.productId,
-      date: formData.date,
-      quantity: parseInt(formData.quantity)
-    };
-
-    onAdd(newLog);
-    setFormData({ ...formData, quantity: '', productId: '' });
-    setSearchTerm('');
+  const getElementValue = (parent: Element | Document, tag: string) => {
+    const el = parent.getElementsByTagName(tag);
+    if (el.length > 0) return el[0].textContent || "";
+    const qEl = (parent as any).querySelectorAll?.(tag);
+    return qEl && qEl.length > 0 ? qEl[0].textContent || "" : "";
   };
 
-  const handleSelectProduct = (p: Product) => {
-    setFormData({ ...formData, productId: p.id });
-    setSearchTerm(p.name);
-    setIsDropdownOpen(false);
+  const handleImportXML = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const xmlDoc = new DOMParser().parseFromString(event.target?.result as string, "text/xml");
+        
+        // nNF = Número da Nota Fiscal
+        const nfNum = getElementValue(xmlDoc, "nNF");
+        setXmlInvoiceNumber(nfNum);
+
+        // vVenc = Data de Vencimento
+        let foundDate = getElementValue(xmlDoc, "vVenc") || getElementValue(xmlDoc, "dhEmi") || getElementValue(xmlDoc, "dEmi");
+        if (foundDate.includes('T')) foundDate = foundDate.split('T')[0];
+        
+        const finalDate = foundDate || new Date().toISOString().split('T')[0];
+        setXmlDate(finalDate);
+
+        const items = xmlDoc.querySelectorAll("det");
+        const newPending: PendingXMLItem[] = [];
+        const existingFound: {productId: string, quantity: number}[] = [];
+        
+        for (const item of Array.from(items)) {
+          const prodEl = item.querySelector("prod");
+          if (!prodEl) continue;
+          const xProd = getElementValue(prodEl as any, "xProd").trim();
+          const qCom = parseFloat(getElementValue(prodEl as any, "qCom") || "0");
+          const vUnCom = parseFloat(getElementValue(prodEl as any, "vUnCom") || "0");
+          if (!xProd) continue;
+
+          const matchedProduct = products.find(p => p.name.trim().toLowerCase() === xProd.toLowerCase());
+          
+          if (matchedProduct) {
+            existingFound.push({ productId: matchedProduct.id, quantity: Math.floor(qCom) });
+          } else {
+            newPending.push({ name: xProd, manufacturingValue: vUnCom, quantity: Math.floor(qCom), laborCost: 0 });
+          }
+        }
+
+        if (newPending.length > 0) {
+          setPendingItems(newPending);
+          setExistingItemsInXML(existingFound);
+          setShowPendingModal(true);
+        } else if (existingFound.length > 0) {
+          for (const entry of existingFound) {
+            await onAdd({ id: '', productId: entry.productId, date: finalDate, quantity: entry.quantity, paid: false, invoiceNumber: nfNum });
+          }
+          alert(`Importação concluída! NF: ${nfNum} | Vencimento: ${finalDate}`);
+        } else {
+          alert("Nenhum item reconhecido no XML.");
+        }
+      } catch (err) { 
+        console.error("XML Error:", err);
+        alert("Erro ao processar o arquivo XML. Verifique se é uma NF-e válida."); 
+      } finally { 
+        setIsImporting(false); 
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleConfirmPending = async () => {
+    setIsImporting(true);
+    try {
+      let targetCatId = categories.find(c => c.name.toLowerCase().includes('xml'))?.id;
+      if (!targetCatId) {
+        const newCat = await onAddCategory('Importados XML');
+        if (newCat) targetCatId = newCat.id;
+      }
+
+      for (const item of pendingItems) {
+        const savedProduct = await onAddProduct({
+          id: '', name: item.name, manufacturingValue: item.manufacturingValue, laborCost: item.laborCost, categoryId: targetCatId || ''
+        });
+        if (savedProduct) {
+          await onAdd({ id: '', productId: savedProduct.id, date: xmlDate, quantity: item.quantity, paid: false, invoiceNumber: xmlInvoiceNumber });
+        }
+      }
+
+      for (const entry of existingItemsInXML) {
+        await onAdd({ id: '', productId: entry.productId, date: xmlDate, quantity: entry.quantity, paid: false, invoiceNumber: xmlInvoiceNumber });
+      }
+
+      setShowPendingModal(false);
+      alert("Lançamentos de importação finalizados!");
+    } catch (err: any) {
+      alert(`Erro: ${err.message}`);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-500">
+    <div className="space-y-4 animate-in fade-in duration-500 pb-10">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <SummaryCard 
-          title="Receita" 
-          value={totals.totalValue} 
-          icon={<Calculator size={14} className="text-blue-600" />} 
-          color="blue" 
-        />
-        <SummaryCard 
-          title="Mão de Obra" 
-          value={totals.totalLabor} 
-          icon={<DollarSign size={14} className="text-orange-600" />} 
-          color="orange" 
-        />
-        <SummaryCard 
-          title="L. Bruto" 
-          value={totals.totalGrossProfit} 
-          icon={<BadgeDollarSign size={14} className="text-indigo-600" />} 
-          color="indigo" 
-        />
-        <SummaryCard 
-          title="L. Líquido" 
-          value={totals.totalNetProfit} 
-          icon={<TrendingUp size={14} className="text-green-600" />} 
-          color="green" 
-        />
+        <SummaryCard title="Receita" value={totals.totalValue} icon={<Calculator size={14} className="text-blue-600" />} color="blue" />
+        <SummaryCard title="Mão de Obra" value={totals.totalLabor} icon={<DollarSign size={14} className="text-orange-600" />} color="orange" />
+        <SummaryCard title="L. Bruto" value={totals.totalGrossProfit} icon={<BadgeDollarSign size={14} className="text-indigo-600" />} color="indigo" />
+        <SummaryCard title="L. Líquido" value={totals.totalNetProfit} icon={<TrendingUp size={14} className="text-green-600" />} color="green" />
       </div>
 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <Plus className="text-indigo-600" size={18} />
-          Lançar Produção
-        </h2>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-          
-          {/* Seletor de Produto Pesquisável */}
-          <div className="space-y-0.5 relative" ref={dropdownRef}>
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-0.5">Produto</label>
-            <div className="relative">
-              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
-                <Search size={14} />
-              </div>
-              <input
-                type="text"
-                placeholder="Pesquisar produto..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setIsDropdownOpen(true);
-                  if (formData.productId) setFormData({...formData, productId: ''});
-                }}
-                onFocus={() => setIsDropdownOpen(true)}
-                className="w-full pl-8 pr-8 py-1.5 border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-xs bg-gray-50/30"
-              />
-              {searchTerm && (
-                <button 
-                  type="button"
-                  onClick={() => { setSearchTerm(''); setFormData({...formData, productId: ''}); }}
-                  className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
-                >
-                  <X size={12} />
-                </button>
-              )}
-              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                <ChevronDown size={14} />
-              </div>
-            </div>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-base font-bold flex items-center gap-2"><Plus className="text-indigo-600" size={18} /> Lançar Produção</h2>
+          <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg text-xs font-bold border border-emerald-200 flex items-center gap-2 hover:bg-emerald-100 transition-all shadow-sm group">
+            {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} className="text-emerald-500 group-hover:scale-110 transition-transform" />} 
+            Importar XML (Vencimento + NF)
+            <input type="file" accept=".xml" className="hidden" ref={fileInputRef} onChange={handleImportXML} />
+          </button>
+        </div>
 
-            {/* Dropdown de Sugestões */}
+        <form onSubmit={(e) => { e.preventDefault(); if (formData.productId) onAdd({ id: '', productId: formData.productId, date: formData.date, quantity: parseInt(formData.quantity), paid: false, invoiceNumber: formData.invoiceNumber }).then(() => { setFormData({ ...formData, quantity: '', invoiceNumber: '' }); setSearchTerm(''); }); }} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+          <div className="relative md:col-span-2" ref={dropdownRef}>
+            <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Produto</label>
+            <div className="relative">
+               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+               <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setIsDropdownOpen(true); }} onFocus={() => setIsDropdownOpen(true)} className="w-full pl-8 pr-8 py-2 border rounded-xl text-xs outline-none bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all" />
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+            </div>
             {isDropdownOpen && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
-                {filteredProducts.length > 0 ? (
-                  filteredProducts.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handleSelectProduct(p)}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 transition-colors flex items-center justify-between group ${formData.productId === p.id ? 'bg-indigo-50' : ''}`}
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-bold text-gray-800">{p.name}</span>
-                        <span className="text-[10px] text-gray-400">R$ {p.manufacturingValue.toFixed(2)}</span>
-                      </div>
-                      <span className="text-[10px] text-indigo-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity">#{p.id}</span>
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-3 py-4 text-center text-gray-400 text-xs italic">
-                    Nenhum produto encontrado
-                  </div>
-                )}
+              <div className="absolute z-50 w-full mt-1 bg-white border rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+                {filteredProducts.map(p => (
+                  <button key={p.id} type="button" onClick={() => { setFormData({ ...formData, productId: p.id }); setSearchTerm(p.name); setIsDropdownOpen(false); }} className="w-full text-left px-4 py-3 text-xs hover:bg-indigo-50 flex justify-between items-center border-b last:border-none">
+                    <span className="font-semibold text-gray-700">{p.name}</span> 
+                    <span className="text-[10px] font-bold text-indigo-400 bg-indigo-50 px-2 py-0.5 rounded">R$ {p.manufacturingValue.toFixed(2)}</span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
-
-          <div className="space-y-0.5">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-0.5">Data</label>
-            <div className="relative">
-              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none text-xs bg-gray-50/30"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-0.5">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-0.5">Qtd</label>
-            <div className="relative">
-              <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-              <input
-                type="number"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none text-xs bg-gray-50/30"
-                placeholder="0"
-                required
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={!formData.productId}
-            className={`w-full font-bold py-1.5 px-4 rounded-lg transition-all flex items-center justify-center gap-1.5 text-xs h-[34px] shadow-sm ${
-              formData.productId 
-              ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-[0.98]' 
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            }`}
-          >
-            <Plus size={14} /> Lançar Produção
+          <div><label className="text-[10px] font-bold text-gray-500 uppercase ml-1">NF</label><input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-xs outline-none bg-gray-50" placeholder="Número..." /></div>
+          <div><label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Vencimento</label><input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-xs outline-none bg-gray-50" required /></div>
+          <div><label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Quantidade</label><input type="number" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-xs outline-none bg-gray-50" placeholder="0" required /></div>
+          <button type="submit" disabled={!formData.productId} className={`w-full font-bold py-2 rounded-xl text-xs h-[38px] transition-all flex items-center justify-center gap-2 md:col-span-5 lg:col-span-1 ${formData.productId ? 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700' : 'bg-gray-100 text-gray-400'}`}>
+            <Plus size={16} /> Lançar Produção
           </button>
         </form>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-3 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-gray-800">Histórico de Lançamentos</h2>
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{reportData.length} registros</span>
+        <div className="p-4 bg-gray-50/50 border-b flex justify-between items-center">
+          <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Histórico de Lançamentos</h2>
+          <span className="text-[10px] font-bold bg-white text-indigo-600 px-2 py-1 rounded-full border shadow-sm">{reportData.length} REGISTROS</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-white border-b border-gray-100">
-                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-center">ID</th>
-                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-center">Data</th>
-                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-left">Produto</th>
-                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-center">Qtd</th>
-                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-right">Fatur.</th>
-                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-right">M.O.</th>
-                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-right">L. Bruto</th>
-                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-right">L. Líq.</th>
-                <th className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase text-center w-12">Ações</th>
+          <table className="w-full whitespace-nowrap">
+            <thead className="bg-white border-b text-[10px] font-bold text-gray-400 uppercase">
+              <tr>
+                <th className="px-2 py-3 text-center w-8">PAGO</th>
+                <th className="px-3 py-3 text-center">NF</th>
+                <th className="px-3 py-3 text-center">VENCIMENTO</th>
+                <th className="px-4 py-3 text-left">PRODUTO</th>
+                <th className="px-4 py-3 text-center">QTD</th>
+                <th className="px-4 py-3 text-right">FATUR.</th>
+                <th className="px-4 py-3 text-right">M.O.</th>
+                <th className="px-4 py-3 text-right">L. BRUTO</th>
+                <th className="px-4 py-3 text-right text-green-600">L. LÍQ.</th>
+                <th className="px-4 py-3 text-center w-10">AÇÕES</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {reportData.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-3 py-10 text-center text-gray-400 text-xs italic">
-                    <div className="flex flex-col items-center gap-2">
-                      <Package size={24} className="opacity-10" />
-                      Nenhum lançamento registrado.
-                    </div>
+            <tbody className="divide-y text-xs">
+              {reportData.map(item => (
+                <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${item.paid ? 'bg-green-50/40 italic text-gray-400' : ''}`}>
+                  <td className="px-2 py-2.5 text-center">
+                    <input 
+                      type="checkbox" 
+                      checked={!!item.paid} 
+                      onChange={() => onTogglePaid && onTogglePaid(item.id, !!item.paid)}
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-3 py-2.5 text-center font-bold text-gray-500">{item.invoiceNumber || '-'}</td>
+                  <td className="px-3 py-2.5 text-center font-medium text-gray-600">{new Date(item.date).toLocaleDateString('pt-BR')}</td>
+                  <td className={`px-4 py-2.5 font-bold uppercase ${item.paid ? 'line-through opacity-50' : 'text-gray-800'}`}>{item.productName}</td>
+                  <td className="px-4 py-2.5 text-center font-semibold text-gray-600">{item.quantity}</td>
+                  <td className={`px-4 py-2.5 text-right font-medium ${item.paid ? 'text-gray-400' : 'text-blue-600'}`}>R$ {item.totalValue.toFixed(2)}</td>
+                  <td className={`px-4 py-2.5 text-right font-medium ${item.paid ? 'text-green-600' : 'text-orange-600'}`}>R$ {item.totalLaborPaid.toFixed(2)}</td>
+                  <td className={`px-4 py-2.5 text-right font-medium ${item.paid ? 'text-gray-400' : 'text-indigo-600'}`}>R$ {item.grossProfit.toFixed(2)}</td>
+                  <td className={`px-4 py-2.5 text-right font-bold ${item.paid ? 'text-gray-400' : 'text-green-600'}`}>R$ {item.netProfit.toFixed(2)}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <button onClick={() => onDelete(item.id)} className="text-gray-300 hover:text-red-500 p-1 rounded transition-colors">
+                      <Trash2 size={14}/>
+                    </button>
                   </td>
                 </tr>
-              ) : (
-                reportData.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="px-3 py-2 text-[10px] font-mono text-gray-400 text-center">#{item.id}</td>
-                    <td className="px-3 py-2 text-[10px] text-gray-600 text-center">{new Date(item.date).toLocaleDateString('pt-BR')}</td>
-                    <td className="px-3 py-2 text-xs font-bold text-gray-800 text-left">{item.productName}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600 text-center">{item.quantity}</td>
-                    <td className="px-3 py-2 text-xs text-blue-600 font-medium text-right">R$ {item.totalValue.toFixed(2)}</td>
-                    <td className="px-3 py-2 text-xs text-orange-600 font-medium text-right">R$ {item.totalLaborPaid.toFixed(2)}</td>
-                    <td className="px-3 py-2 text-xs text-indigo-600 font-medium text-right">R$ {item.grossProfit.toFixed(2)}</td>
-                    <td className="px-3 py-2 text-xs font-bold text-green-600 text-right">R$ {item.netProfit.toFixed(2)}</td>
-                    <td className="px-3 py-2 text-center">
-                      <button 
-                        onClick={() => onDelete(item.id)}
-                        className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-all"
-                        title="Excluir lançamento"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+              ))}
+              {reportData.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center text-gray-400 italic">Nenhum lançamento registrado.</td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {showPendingModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => !isImporting && setShowPendingModal(false)}></div>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl z-10 overflow-hidden">
+            <div className="bg-indigo-600 p-6 text-white flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold flex items-center gap-2"><ShoppingBag size={20} /> Itens Novos do XML</h3>
+                <p className="text-xs text-indigo-100 mt-1 opacity-90">Defina o valor da mão de obra para os produtos abaixo.</p>
+              </div>
+              <button onClick={() => setShowPendingModal(false)} className="hover:bg-white/10 p-2 rounded-full transition-all"><X size={20} /></button>
+            </div>
+            <div className="p-6 max-h-[60vh] overflow-y-auto">
+              <div className="mb-4 bg-gray-50 p-3 rounded-lg flex items-center gap-3">
+                 <ReceiptText className="text-indigo-500" size={18} />
+                 <span className="text-xs font-bold text-gray-600">NF: {xmlInvoiceNumber || 'Não identificada'}</span>
+              </div>
+              <table className="w-full">
+                <thead className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  <tr className="border-b"><th className="pb-3 text-left">Produto</th><th className="pb-3 text-right">Preço Venda</th><th className="pb-3 text-center">Mão de Obra (R$)</th></tr>
+                </thead>
+                <tbody className="divide-y">
+                  {pendingItems.map((item, idx) => (
+                    <tr key={idx} className="group">
+                      <td className="py-4 pr-4">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-gray-800">{item.name}</span>
+                          <span className="text-[10px] text-gray-400">Vencimento da NF: {xmlDate}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 text-right text-xs font-bold text-gray-600">R$ {item.manufacturingValue.toFixed(2)}</td>
+                      <td className="py-4 pl-6 text-center">
+                        <input type="number" step="0.01" placeholder="0,00" value={item.laborCost || ''} onChange={(e) => { const newItems = [...pendingItems]; newItems[idx].laborCost = parseFloat(e.target.value) || 0; setPendingItems(newItems); }} className="w-24 text-center py-1.5 border-2 border-indigo-50 rounded-lg text-xs font-bold outline-none focus:border-indigo-500" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-6 bg-gray-50 border-t flex justify-end gap-3">
+              <button onClick={() => setShowPendingModal(false)} disabled={isImporting} className="px-6 py-2 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-xl">Cancelar</button>
+              <button onClick={handleConfirmPending} disabled={isImporting || pendingItems.some(i => i.laborCost <= 0)} className={`px-8 py-2 text-xs font-bold rounded-xl text-white ${isImporting || pendingItems.some(i => i.laborCost <= 0) ? 'bg-gray-200 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95 shadow-indigo-200 shadow-lg'}`}>
+                {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} 
+                Confirmar Lançamentos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-const SummaryCard = ({ title, value, icon, color }: { title: string, value: number, icon: React.ReactNode, color: string }) => {
-  const bgClasses: Record<string, string> = {
-    blue: 'bg-blue-50',
-    orange: 'bg-orange-50',
-    green: 'bg-green-50',
-    indigo: 'bg-indigo-50'
-  };
-
+const SummaryCard = ({ title, value, icon, color }: any) => {
+  const bgs: any = { blue: 'bg-blue-50', orange: 'bg-orange-50', green: 'bg-green-50', indigo: 'bg-indigo-50' };
   return (
-    <div className="bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
-      <div className={`p-1.5 rounded-lg ${bgClasses[color]}`}>
-        {icon}
-      </div>
+    <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 transition-transform hover:scale-[1.02]">
+      <div className={`p-2 rounded-lg ${bgs[color]}`}>{icon}</div>
       <div>
-        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{title}</p>
-        <p className="text-xs font-bold text-gray-800">R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{title}</p>
+        <p className="text-xs font-extrabold text-gray-800">R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
       </div>
     </div>
   );

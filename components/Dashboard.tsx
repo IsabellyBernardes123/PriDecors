@@ -145,7 +145,6 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
         </div>
       </header>
 
-      {/* Fileira 1: Faturamento, Mão de Obra, Lucro Bruto, Lucro Líquido */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard title="Faturamento" value={`R$ ${stats.revenue.toFixed(2)}`} icon={<Calculator className="text-blue-600" size={14} />} color="blue" />
         <StatCard title="Mão de Obra" value={`R$ ${stats.labor.toFixed(2)}`} icon={<Users className="text-orange-500" size={14} />} color="orange" />
@@ -153,7 +152,6 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
         <StatCard title="Lucro Líquido" value={`R$ ${stats.productionNetProfit.toFixed(2)}`} icon={<TrendingUp className="text-green-500" size={14} />} color="green" />
       </div>
 
-      {/* Fileira 2: Total Produzido, Imposto, Outras Despesas, Valor Final */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard title="Total Produzido" value={`${stats.totalQuantity} un.`} icon={<Layers className="text-purple-600" size={14} />} color="blue" />
         <StatCard title="Imposto" value={`R$ ${stats.taxAmount.toFixed(2)}`} icon={<Percent className="text-red-500" size={14} />} color="red" />
@@ -162,11 +160,11 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm overflow-hidden min-h-[300px]">
           <h3 className="text-xs font-bold text-gray-800 mb-4">Desempenho Diário</h3>
-          <div className="h-48 sm:h-56 w-full min-h-[192px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+              <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} dy={5} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} />
@@ -181,20 +179,20 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm min-h-[300px]">
           <h3 className="text-xs font-bold text-gray-800 mb-4">Mix de Produção</h3>
-          <div className="h-48 sm:h-56 flex flex-col xs:flex-row items-center min-h-[192px]">
+          <div className="h-[250px] flex flex-col xs:flex-row items-center">
             {productDistribution.length > 0 ? (
               <>
                 <div className="flex-1 w-full h-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                     <PieChart>
                       <Pie
                         data={productDistribution}
                         cx="50%"
                         cy="50%"
-                        innerRadius={30}
-                        outerRadius={50}
+                        innerRadius={40}
+                        outerRadius={60}
                         paddingAngle={4}
                         dataKey="value"
                       >
