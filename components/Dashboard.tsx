@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Product, ProductionLog, Expense } from '../types';
 import { TrendingUp, Users, Sparkles, Percent, BadgeDollarSign, Calculator, Receipt, Calendar, Package, Layers, Wallet } from 'lucide-react';
@@ -16,6 +16,11 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
   
   const [selectedMonth, setSelectedMonth] = useState((now.getMonth() + 1).toString().padStart(2, '0'));
   const [selectedYear, setSelectedYear] = useState(now.getFullYear().toString());
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const periodKey = `${selectedYear}-${selectedMonth}`;
 
@@ -160,62 +165,66 @@ const Dashboard: React.FC<Props> = ({ products, logs, expenses }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm overflow-hidden min-h-[300px]">
+        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm min-h-[300px] flex flex-col">
           <h3 className="text-xs font-bold text-gray-800 mb-4">Desempenho Diário</h3>
-          <div className="h-[250px] w-full" style={{ minWidth: 0 }}>
-            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-              <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} dy={5} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} />
-                <Tooltip 
-                  contentStyle={{ fontSize: '10px', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  labelFormatter={(label) => `Dia ${label}`}
-                />
-                <Line name="L. Bruto" type="monotone" dataKey="grossProfit" stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" dot={false} />
-                <Line name="L. Líquido" type="monotone" dataKey="netProfit" stroke="#6366f1" strokeWidth={2} dot={{ fill: '#6366f1', r: 3 }} activeDot={{ r: 5 }} />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="flex-1 w-full min-h-[220px]">
+            {isMounted && (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} dy={5} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} />
+                  <Tooltip 
+                    contentStyle={{ fontSize: '10px', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    labelFormatter={(label) => `Dia ${label}`}
+                  />
+                  <Line name="L. Bruto" type="monotone" dataKey="grossProfit" stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" dot={false} />
+                  <Line name="L. Líquido" type="monotone" dataKey="netProfit" stroke="#6366f1" strokeWidth={2} dot={{ fill: '#6366f1', r: 3 }} activeDot={{ r: 5 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm min-h-[300px]">
+        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm min-h-[300px] flex flex-col">
           <h3 className="text-xs font-bold text-gray-800 mb-4">Mix de Produção</h3>
-          <div className="h-[250px] flex flex-col xs:flex-row items-center">
+          <div className="flex-1 flex flex-col items-center justify-center">
             {productDistribution.length > 0 ? (
-              <>
-                <div className="flex-1 w-full h-full" style={{ minWidth: 0 }}>
-                  <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-                    <PieChart>
-                      <Pie
-                        data={productDistribution}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={60}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {productDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="w-full xs:w-1/2 space-y-1 mt-2 xs:mt-0 xs:pl-4">
-                  {productDistribution.map((entry, index) => (
-                    <div key={entry.name} className="flex items-center justify-between p-1 rounded hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-1.5 overflow-hidden">
-                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                        <span className="text-[9px] font-semibold text-gray-600 truncate">{entry.name}</span>
+              isMounted && (
+                <div className="flex-1 w-full h-full flex flex-col xs:flex-row items-center">
+                  <div className="flex-1 w-full min-h-[200px]">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={productDistribution}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={60}
+                          paddingAngle={4}
+                          dataKey="value"
+                        >
+                          {productDistribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="w-full xs:w-1/2 space-y-1 mt-2 xs:mt-0 xs:pl-4">
+                    {productDistribution.map((entry, index) => (
+                      <div key={entry.name} className="flex items-center justify-between p-1 rounded hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                          <span className="text-[9px] font-semibold text-gray-600 truncate">{entry.name}</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-gray-900 ml-1 shrink-0">{entry.value}u</span>
                       </div>
-                      <span className="text-[9px] font-bold text-gray-900 ml-1 shrink-0">{entry.value}u</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </>
+              )
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-300 space-y-1">
                 <Package className="opacity-10" size={32} />
