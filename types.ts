@@ -17,6 +17,8 @@ export interface ProductionLog {
   productId: string;
   date: string;
   quantity: number;
+  paid?: boolean; // Status de pagamento
+  invoiceNumber?: string; // Número da Nota Fiscal
 }
 
 export interface Expense {

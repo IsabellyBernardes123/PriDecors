@@ -48,7 +48,9 @@ const App: React.FC = () => {
         id: l.id.toString(),
         productId: l.product_id.toString(),
         date: l.date,
-        quantity: l.quantity
+        quantity: l.quantity,
+        paid: !!l.paid,
+        invoiceNumber: l.invoice_number || ''
       })));
 
       const { data: eData, error: eErr } = await supabase.from('expenses').select('*').order('date', { ascending: false });
@@ -71,12 +73,27 @@ const App: React.FC = () => {
     }
   };
 
-  const addCategory = async (name: string) => {
+  const getNextId = async (table: string): Promise<number> => {
+    const { data, error } = await supabase.from(table).select('id').order('id', { ascending: false }).limit(1);
+    if (error || !data || data.length === 0) return 1;
+    return (parseInt(data[0].id) || 0) + 1;
+  };
+
+  const addCategory = async (name: string): Promise<Category | null> => {
     try {
-      const { data, error } = await supabase.from('categories').insert([{ name }]).select();
+      const nextId = await getNextId('categories');
+      const { data, error } = await supabase.from('categories').insert([{ id: nextId, name }]).select();
       if (error) throw error;
-      if (data && data[0]) setCategories([...categories, { id: data[0].id.toString(), name: data[0].name }]);
-    } catch (err: any) { alert('Erro ao salvar categoria: ' + err.message); }
+      if (data && data[0]) {
+        const newCat = { id: data[0].id.toString(), name: data[0].name };
+        setCategories(prev => [...prev, newCat]);
+        return newCat;
+      }
+    } catch (err: any) { 
+      alert('Erro ao salvar categoria: ' + err.message); 
+      return null;
+    }
+    return null;
   };
 
   const updateCategory = async (id: string, name: string) => {
@@ -96,17 +113,27 @@ const App: React.FC = () => {
     } catch (err: any) { alert('Erro ao excluir categoria: ' + err.message); }
   };
 
-  const addProduct = async (product: Product) => {
+  const addProduct = async (product: Product): Promise<Product | null> => {
     try {
+      const nextId = await getNextId('products');
       const { data, error } = await supabase.from('products').insert([{
+        id: nextId,
         name: product.name,
         manufacturing_value: product.manufacturingValue,
         labor_cost: product.laborCost,
         category_id: product.categoryId ? parseInt(product.categoryId) : null
       }]).select();
       if (error) throw error;
-      if (data && data[0]) setProducts([...products, { ...product, id: data[0].id.toString() }]);
-    } catch (err: any) { alert('Erro ao salvar produto: ' + err.message); }
+      if (data && data[0]) {
+        const newProduct = { ...product, id: data[0].id.toString() };
+        setProducts(prev => [...prev, newProduct]);
+        return newProduct;
+      }
+    } catch (err: any) { 
+      alert('Erro ao salvar produto: ' + err.message); 
+      return null;
+    }
+    return null;
   };
 
   const updateProduct = async (product: Product) => {
@@ -131,16 +158,36 @@ const App: React.FC = () => {
     } catch (err: any) { alert('Erro ao excluir produto: ' + err.message); }
   };
   
-  const addLog = async (log: ProductionLog) => {
+  const addLog = async (log: ProductionLog): Promise<void> => {
     try {
+      const nextId = await getNextId('production_logs');
       const { data, error } = await supabase.from('production_logs').insert([{
+        id: nextId,
         product_id: parseInt(log.productId),
         date: log.date,
-        quantity: log.quantity
+        quantity: log.quantity,
+        paid: !!log.paid,
+        invoice_number: log.invoice_number || null
       }]).select();
       if (error) throw error;
-      if (data && data[0]) setLogs([...logs, { ...log, id: data[0].id.toString() }]);
-    } catch (err: any) { alert('Erro ao salvar lançamento: ' + err.message); }
+      if (data && data[0]) {
+        const newLog = { ...log, id: data[0].id.toString(), paid: !!log.paid };
+        setLogs(prev => [newLog, ...prev]);
+      }
+    } catch (err: any) { 
+      alert('Erro ao salvar lançamento: ' + err.message); 
+      throw err;
+    }
+  };
+
+  const toggleLogPaid = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase.from('production_logs').update({ paid: !currentStatus }).eq('id', parseInt(id));
+      if (error) throw error;
+      setLogs(logs.map(l => l.id === id ? { ...l, paid: !currentStatus } : l));
+    } catch (err: any) {
+      alert('Erro ao atualizar status de pagamento: ' + err.message);
+    }
   };
 
   const deleteLog = async (id: string) => {
@@ -153,7 +200,9 @@ const App: React.FC = () => {
 
   const addExpense = async (expense: Expense) => {
     try {
+      const nextId = await getNextId('expenses');
       const { data, error } = await supabase.from('expenses').insert([{
+        id: nextId,
         description: expense.description,
         value: expense.value,
         date: expense.date
@@ -167,6 +216,7 @@ const App: React.FC = () => {
     try {
       const { error } = await supabase.from('expenses').delete().eq('id', parseInt(id));
       if (error) throw error;
+      // Fixed: changed 'x.id' to 'ex.id' as the filter parameter is 'ex'
       setExpenses(expenses.filter(ex => ex.id !== id));
     } catch (err: any) { alert('Erro ao excluir despesa: ' + err.message); }
   };
@@ -202,7 +252,7 @@ const App: React.FC = () => {
             <Route path="/" element={<Dashboard products={products} logs={logs} expenses={expenses} />} />
             <Route path="/categorias" element={<CategoryManagement categories={categories} onAdd={addCategory} onUpdate={updateCategory} onDelete={deleteCategory} />} />
             <Route path="/produtos" element={<ProductManagement products={products} categories={categories} onAdd={addProduct} onUpdate={updateProduct} onDelete={deleteProduct} />} />
-            <Route path="/lancamentos" element={<ProductionLogs products={products} logs={logs} onAdd={addLog} onDelete={deleteLog} />} />
+            <Route path="/lancamentos" element={<ProductionLogs products={products} categories={categories} logs={logs} onAdd={addLog} onDelete={deleteLog} onAddProduct={addProduct} onAddCategory={addCategory} onTogglePaid={toggleLogPaid} />} />
             <Route path="/despesas" element={<ExpenseManagement expenses={expenses} onAdd={addExpense} onDelete={deleteExpense} />} />
             <Route path="/relatorios" element={<Reports products={products} logs={logs} expenses={expenses} />} />
             <Route path="/ia" element={<AIAssistant products={products} logs={logs} expenses={expenses} />} />
