@@ -21,6 +21,13 @@ const Reports: React.FC<Props> = ({ products, logs, expenses }) => {
     productId: ''
   });
 
+  const formatDisplayDate = (dateStr: string) => {
+    if (!dateStr) return "-";
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  };
+
   const applyQuickFilter = (type: 'lastWeek' | 'currentMonth') => {
     const now = new Date();
     let start = new Date();
@@ -96,7 +103,7 @@ const Reports: React.FC<Props> = ({ products, logs, expenses }) => {
     try {
       const data = filteredData.map(item => ({
         'ID': item.id,
-        'Data': new Date(item.date).toLocaleDateString('pt-BR'),
+        'Data': formatDisplayDate(item.date),
         'Produto': item.productName,
         'Quantidade': item.quantity,
         'Faturamento (R$)': item.totalValue.toFixed(2),
@@ -140,7 +147,7 @@ const Reports: React.FC<Props> = ({ products, logs, expenses }) => {
 
       const tableData = filteredData.map(item => [
         item.id,
-        new Date(item.date).toLocaleDateString('pt-BR'),
+        formatDisplayDate(item.date),
         item.productName,
         item.quantity.toString(),
         formatCurrency(item.totalValue),

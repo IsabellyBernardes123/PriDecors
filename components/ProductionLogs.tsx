@@ -76,7 +76,13 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
     totalNetProfit: acc.totalNetProfit + curr.netProfit
   }), { totalValue: 0, totalLabor: 0, totalGrossProfit: 0, totalNetProfit: 0 }), [reportData]);
 
-  // Busca uma tag XML de forma profunda
+  const formatDisplayDate = (dateStr: string) => {
+    if (!dateStr) return "-";
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  };
+
   const getTagValue = (container: Document | Element, tagName: string): string => {
     const el = container.getElementsByTagName(tagName);
     if (el && el.length > 0) return el[0].textContent?.trim() || "";
@@ -90,18 +96,13 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
         try {
           const content = event.target?.result as string;
           const xmlDoc = new DOMParser().parseFromString(content, "text/xml");
-          
-          // Busca Numero da Nota (nNF)
           const nfNum = getTagValue(xmlDoc, "nNF") || getTagValue(xmlDoc, "infNFe") || "";
-          
           let foundDate = getTagValue(xmlDoc, "vVenc") || getTagValue(xmlDoc, "dhEmi") || getTagValue(xmlDoc, "dEmi");
           if (foundDate.includes('T')) foundDate = foundDate.split('T')[0];
           const finalDate = foundDate || new Date().toISOString().split('T')[0];
-
           const items = xmlDoc.querySelectorAll("det");
           const fileEntries: LogEntry[] = [];
           const fileNewProducts: PendingProduct[] = [];
-
           for (const item of Array.from(items)) {
             const prodEl = item.querySelector("prod");
             if (!prodEl) continue;
@@ -109,18 +110,8 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
             const qCom = parseFloat(getTagValue(prodEl, "qCom") || "0");
             const vUnCom = parseFloat(getTagValue(prodEl, "vUnCom") || "0");
             if (!xProd) continue;
-
-            // Busca no cadastro (considerando nomes limpos)
             const matchedProduct = products.find(p => p.name.trim().toLowerCase() === xProd.trim().toLowerCase());
-            
-            fileEntries.push({ 
-                productName: xProd, 
-                productId: matchedProduct?.id, 
-                quantity: Math.floor(qCom), 
-                invoiceNumber: nfNum, 
-                date: finalDate 
-            });
-
+            fileEntries.push({ productName: xProd, productId: matchedProduct?.id, quantity: Math.floor(qCom), invoiceNumber: nfNum, date: finalDate });
             if (!matchedProduct) {
               if (!fileNewProducts.find(p => p.name.trim().toLowerCase() === xProd.trim().toLowerCase())) {
                   fileNewProducts.push({ name: xProd, manufacturingValue: vUnCom, laborCost: 0 });
@@ -141,12 +132,10 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
     setIsImporting(true);
     const filesArray = Array.from(files) as File[];
     setImportedFilesCount(filesArray.length);
-
     try {
       const results = await Promise.all(filesArray.map(file => processFile(file)));
       const combinedEntries: LogEntry[] = [];
       const combinedNewProducts: PendingProduct[] = [];
-
       results.forEach(res => {
         combinedEntries.push(...res.entries);
         res.newProducts.forEach(newP => {
@@ -156,10 +145,8 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
           }
         });
       });
-
       setAllEntriesToLog(combinedEntries);
       setPendingProducts(combinedNewProducts);
-
       if (combinedNewProducts.length > 0) {
         setShowPendingModal(true);
       } else if (combinedEntries.length > 0) {
@@ -192,10 +179,7 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
         const newCat = await onAddCategory('Importados XML');
         if (newCat) targetCatId = newCat.id;
       }
-      
       const createdProductsMap: Record<string, string> = {};
-
-      // 1. Salva produtos novos em LOTE
       if (onAddProductsBatch && pendingProducts.length > 0) {
         const batch = pendingProducts.map(p => ({
           name: p.name,
@@ -206,8 +190,6 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
         const saved = await onAddProductsBatch(batch);
         saved.forEach(s => createdProductsMap[s.name.trim().toLowerCase()] = s.id);
       }
-
-      // 2. Salva lançamentos em LOTE
       if (onAddLogsBatch && allEntriesToLog.length > 0) {
         const logsToSave = allEntriesToLog.map(e => {
             const finalProductId = e.productId || createdProductsMap[e.productName.trim().toLowerCase()];
@@ -219,12 +201,10 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
                 invoiceNumber: e.invoiceNumber
             };
         }).filter(l => !!l.productId);
-
         if (logsToSave.length > 0) {
             await onAddLogsBatch(logsToSave);
         }
       }
-
       setShowPendingModal(false);
       alert(`Importação concluída com sucesso!`);
     } catch (err: any) {
@@ -360,7 +340,7 @@ const ProductionLogs: React.FC<Props> = ({ products, categories, logs, onAdd, on
                     <input type="checkbox" checked={!!item.paid} onChange={() => onTogglePaid && onTogglePaid(item.id, !!item.paid)} className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                   </td>
                   <td className="px-3 py-2.5 text-center font-bold text-gray-500">{item.invoiceNumber || '-'}</td>
-                  <td className="px-3 py-2.5 text-center font-medium text-gray-600">{new Date(item.date).toLocaleDateString('pt-BR')}</td>
+                  <td className="px-3 py-2.5 text-center font-medium text-gray-600">{formatDisplayDate(item.date)}</td>
                   <td className={`px-4 py-2.5 font-bold uppercase ${item.paid ? 'line-through opacity-50' : 'text-gray-800'}`}>{item.productName}</td>
                   <td className="px-4 py-2.5 text-center font-semibold text-gray-600">{item.quantity}</td>
                   <td className={`px-4 py-2.5 text-right font-medium ${item.paid ? 'text-gray-400' : 'text-blue-600'}`}>R$ {item.totalValue.toFixed(2)}</td>
